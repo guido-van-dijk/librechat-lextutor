@@ -85,8 +85,11 @@ export function ThemeProvider({
     const root = window.document.documentElement;
     const darkMode = isDark(rawTheme);
 
-    root.classList.remove(darkMode ? 'light' : 'dark');
+    root.classList.remove('light', 'dark', 'school');
     root.classList.add(darkMode ? 'dark' : 'light');
+    if (rawTheme === 'school') {
+      root.classList.add('school');
+    }
   }, []);
 
   // Handle system theme changes

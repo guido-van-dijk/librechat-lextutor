@@ -1,5 +1,5 @@
 import { useContext, useCallback, useEffect, useState } from 'react';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon, Monitor, BookOpen } from 'lucide-react';
 import { ThemeContext, isDark } from '../theme';
 
 declare global {
@@ -8,13 +8,14 @@ declare global {
   }
 }
 
-type ThemeType = 'system' | 'dark' | 'light';
+type ThemeType = 'system' | 'dark' | 'light' | 'school';
 
 const Theme = ({ theme, onChange }: { theme: string; onChange: (value: string) => void }) => {
   const themeIcons: Record<ThemeType, JSX.Element> = {
     system: <Monitor />,
     dark: <Moon color="white" />,
     light: <Sun />,
+    school: <BookOpen />,
   };
 
   const nextTheme = isDark(theme) ? 'light' : 'dark';
@@ -47,7 +48,7 @@ const Theme = ({ theme, onChange }: { theme: string; onChange: (value: string) =
         }
       }}
     >
-      {themeIcons[theme as ThemeType]}
+      {themeIcons[theme as ThemeType] ?? themeIcons.system}
     </button>
   );
 };
