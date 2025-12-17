@@ -47,26 +47,6 @@ function validateToken(refreshToken) {
 }
 
 /**
- * Determines whether the requested image path should bypass auth checks.
- * Agent avatars need to be publicly accessible so shared agents render correctly.
- * @param {string} imagePath - Express `req.path`
- * @returns {boolean}
- */
-function isPublicAgentAvatarPath(imagePath) {
-  if (typeof imagePath !== 'string' || !imagePath.startsWith('/images/')) {
-    return false;
-  }
-
-  const segments = imagePath.split('/').filter(Boolean);
-  if (segments.length < 3) {
-    return false;
-  }
-
-  const filename = segments[2] || '';
-  return segments[0] === 'images' && filename.startsWith('agent-');
-}
-
-/**
  * Factory to create the `validateImageRequest` middleware with configured secureImageLinks
  * @param {boolean} [secureImageLinks] - Whether secure image links are enabled
  */
@@ -80,10 +60,33 @@ function createValidateImageRequest(secureImageLinks) {
    * Must be set by `secureImageLinks` via custom config file.
    */
   return async function validateImageRequest(req, res, next) {
-    const imagePath = req.path || '';
+    const basePath = getBasePath();
+    const imagesPath = `${basePath}/images`;
+    const MAX_URL_LENGTH = 2048;
+    const originalUrl = req.originalUrl || '';
 
-    // Agent avatars are designed to be shared publicly, bypass auth for these paths
-    if (isPublicAgentAvatarPath(imagePath)) {
+    if (originalUrl.length > MAX_URL_LENGTH) {
+      logger.warn('[validateImageRequest] URL too long');
+      return res.status(403).send('Access Denied');
+    }
+
+    if (originalUrl.includes('\x00')) {
+      logger.warn('[validateImageRequest] URL contains null byte');
+      return res.status(403).send('Access Denied');
+    }
+
+    let fullPath;
+    try {
+      fullPath = decodeURIComponent(originalUrl);
+    } catch {
+      logger.warn('[validateImageRequest] Invalid URL encoding');
+      return res.status(403).send('Access Denied');
+    }
+
+    const agentAvatarPattern = new RegExp(
+      `^${imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[a-f0-9]{24}/agent-[^/]*$`,
+    );
+    if (agentAvatarPattern.test(fullPath)) {
       logger.debug('[validateImageRequest] Bypassing auth for public agent avatar');
       return next();
     }
@@ -131,36 +134,6 @@ function createValidateImageRequest(secureImageLinks) {
       if (!userIdForPath) {
         logger.warn('[validateImageRequest] No user ID available for path validation');
         return res.status(403).send('Access Denied');
-      }
-
-      const MAX_URL_LENGTH = 2048;
-      if (req.originalUrl.length > MAX_URL_LENGTH) {
-        logger.warn('[validateImageRequest] URL too long');
-        return res.status(403).send('Access Denied');
-      }
-
-      if (req.originalUrl.includes('\x00')) {
-        logger.warn('[validateImageRequest] URL contains null byte');
-        return res.status(403).send('Access Denied');
-      }
-
-      let fullPath;
-      try {
-        fullPath = decodeURIComponent(req.originalUrl);
-      } catch {
-        logger.warn('[validateImageRequest] Invalid URL encoding');
-        return res.status(403).send('Access Denied');
-      }
-
-      const basePath = getBasePath();
-      const imagesPath = `${basePath}/images`;
-
-      const agentAvatarPattern = new RegExp(
-        `^${imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[a-f0-9]{24}/agent-[^/]*$`,
-      );
-      if (agentAvatarPattern.test(fullPath)) {
-        logger.debug('[validateImageRequest] Image request validated');
-        return next();
       }
 
       const escapedUserId = userIdForPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
