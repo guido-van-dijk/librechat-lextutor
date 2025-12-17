@@ -1,6 +1,7 @@
 const express = require('express');
 const { isEnabled } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
+const { FileSources } = require('librechat-data-provider');
 const {
   getSharedMessages,
   createSharedLink,
@@ -9,8 +10,37 @@ const {
   getSharedLinks,
   getSharedLink,
 } = require('~/models');
+const { refreshS3Url } = require('~/server/services/Files/S3/crud');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
 const router = express.Router();
+
+const isSignedS3Url = (url) =>
+  typeof url === 'string' && url.includes('X-Amz-Algorithm=AWS4-HMAC-SHA256');
+
+async function refreshShareMessageIcons(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return;
+  }
+
+  await Promise.all(
+    messages.map(async (message) => {
+      if (!message || typeof message !== 'object') {
+        return;
+      }
+
+      if (isSignedS3Url(message.iconURL)) {
+        try {
+          message.iconURL = await refreshS3Url(
+            { filepath: message.iconURL, source: FileSources.s3 },
+            0,
+          );
+        } catch (error) {
+          logger.debug('[share] Failed to refresh icon URL', error);
+        }
+      }
+    }),
+  );
+}
 
 /**
  * Shared messages
@@ -28,6 +58,9 @@ if (allowSharedLinks) {
     async (req, res) => {
       try {
         const share = await getSharedMessages(req.params.shareId);
+        if (share?.messages?.length) {
+          await refreshShareMessageIcons(share.messages);
+        }
 
         if (share) {
           res.status(200).json(share);
