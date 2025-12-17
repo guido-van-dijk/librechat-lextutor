@@ -211,7 +211,7 @@ const CategoryManager: React.FC = () => {
           {localize('com_agents_categories_manage')}
         </Button>
       </OGDialogTrigger>
-      <OGDialogContent className="w-11/12 max-w-2xl border-border-light bg-surface-primary text-text-primary">
+      <OGDialogContent className="w-11/12 max-w-3xl border-border-light bg-surface-primary text-text-primary max-h-[90vh] overflow-y-auto">
         <OGDialogTitle>{localize('com_agents_categories_manage')}</OGDialogTitle>
         <div className="space-y-6 py-2">
           <p className="text-sm text-text-secondary">
@@ -245,7 +245,7 @@ const CategoryManager: React.FC = () => {
                         <p className="text-sm text-text-secondary">{getDescription(category)}</p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
                         {localize('com_ui_edit')}
                       </Button>
@@ -315,7 +315,7 @@ const CategoryManager: React.FC = () => {
                 placeholder={localize('com_agents_categories_description_placeholder')}
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
               <Button type="submit" disabled={isSubmitting}>
                 {editingValue
                   ? localize('com_agents_categories_update')
