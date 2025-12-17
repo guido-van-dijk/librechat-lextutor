@@ -47,6 +47,26 @@ function validateToken(refreshToken) {
 }
 
 /**
+ * Determines whether the requested image path should bypass auth checks.
+ * Agent avatars need to be publicly accessible so shared agents render correctly.
+ * @param {string} imagePath - Express `req.path`
+ * @returns {boolean}
+ */
+function isPublicAgentAvatarPath(imagePath) {
+  if (typeof imagePath !== 'string' || !imagePath.startsWith('/images/')) {
+    return false;
+  }
+
+  const segments = imagePath.split('/').filter(Boolean);
+  if (segments.length < 3) {
+    return false;
+  }
+
+  const filename = segments[2] || '';
+  return segments[0] === 'images' && filename.startsWith('agent-');
+}
+
+/**
  * Factory to create the `validateImageRequest` middleware with configured secureImageLinks
  * @param {boolean} [secureImageLinks] - Whether secure image links are enabled
  */
@@ -60,6 +80,14 @@ function createValidateImageRequest(secureImageLinks) {
    * Must be set by `secureImageLinks` via custom config file.
    */
   return async function validateImageRequest(req, res, next) {
+    const imagePath = req.path || '';
+
+    // Agent avatars are designed to be shared publicly, bypass auth for these paths
+    if (isPublicAgentAvatarPath(imagePath)) {
+      logger.debug('[validateImageRequest] Bypassing auth for public agent avatar');
+      return next();
+    }
+
     try {
       const cookieHeader = req.headers.cookie;
       if (!cookieHeader) {
