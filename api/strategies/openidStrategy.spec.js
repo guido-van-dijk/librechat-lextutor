@@ -2,15 +2,15 @@ const fetch = require('node-fetch');
 const jwtDecode = require('jsonwebtoken/decode');
 const { ErrorTypes } = require('librechat-data-provider');
 const { findUser, createUser, updateUser } = require('~/models');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { setupOpenId } = require('./openidStrategy');
 
 // --- Mocks ---
 jest.mock('node-fetch');
 jest.mock('jsonwebtoken/decode');
-jest.mock('~/server/services/Files/strategies', () => ({
-  getStrategyFunctions: jest.fn(() => ({
-    saveBuffer: jest.fn().mockResolvedValue('/fake/path/to/avatar.png'),
-  })),
+jest.mock('~/server/services/Files/images/avatar', () => ({
+  resizeAvatar: jest.fn().mockResolvedValue(Buffer.from('resized')),
+  saveUserAvatar: jest.fn().mockResolvedValue('data:image/png;base64,abc'),
 }));
 jest.mock('~/server/services/Config', () => ({
   getAppConfig: jest.fn().mockResolvedValue({}),
@@ -37,7 +37,6 @@ jest.mock('@librechat/data-schemas', () => ({
     debug: jest.fn(),
     error: jest.fn(),
   },
-  hashToken: jest.fn().mockResolvedValue('hashed-token'),
 }));
 jest.mock('~/cache/getLogStores', () =>
   jest.fn(() => ({
@@ -368,8 +367,14 @@ describe('setupOpenId', () => {
 
     // Assert – verify that download was attempted and the avatar field was set via updateUser
     expect(fetch).toHaveBeenCalled();
-    // Our mock getStrategyFunctions.saveBuffer returns '/fake/path/to/avatar.png'
-    expect(user.avatar).toBe('/fake/path/to/avatar.png');
+    expect(resizeAvatar).toHaveBeenCalled();
+    expect(saveUserAvatar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: expect.any(String),
+        isCustom: false,
+      }),
+    );
+    expect(user.avatar).toBe('');
   });
 
   it('should not attempt to download avatar if picture is not provided', async () => {
@@ -382,7 +387,8 @@ describe('setupOpenId', () => {
 
     // Assert – fetch should not be called and avatar should remain undefined or empty
     expect(fetch).not.toHaveBeenCalled();
-    // Depending on your implementation, user.avatar may be undefined or an empty string.
+    expect(resizeAvatar).not.toHaveBeenCalled();
+    expect(saveUserAvatar).not.toHaveBeenCalled();
   });
 
   it('should support comma-separated multiple roles', async () => {

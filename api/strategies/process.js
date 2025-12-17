@@ -1,7 +1,5 @@
 const { getBalanceConfig } = require('@librechat/api');
-const { FileSources } = require('librechat-data-provider');
-const { getStrategyFunctions } = require('~/server/services/Files/strategies');
-const { resizeAvatar } = require('~/server/services/Files/images/avatar');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { updateUser, createUser, getUserById } = require('~/models');
 
 /**
@@ -21,28 +19,27 @@ const { updateUser, createUser, getUserById } = require('~/models');
  * @throws {Error} Throws an error if there's an issue saving the updated user object.
  */
 const handleExistingUser = async (oldUser, avatarUrl, appConfig, email) => {
-  const fileStrategy = appConfig?.fileStrategy ?? process.env.CDN_PROVIDER;
-  const isLocal = fileStrategy === FileSources.local;
   const updates = {};
 
-  let updatedAvatar = false;
   const hasManualFlag =
-    typeof oldUser?.avatar === 'string' && oldUser.avatar.includes('?manual=true');
+    oldUser?.avatarIsCustom ||
+    (typeof oldUser?.avatar === 'string' && oldUser.avatar.includes('?manual=true'));
 
-  if (isLocal && (!oldUser?.avatar || !hasManualFlag)) {
-    updatedAvatar = avatarUrl;
-  } else if (!isLocal && (!oldUser?.avatar || !hasManualFlag)) {
+  if (avatarUrl && (!oldUser?.avatarData || !hasManualFlag)) {
     const userId = oldUser._id;
+    const desiredFormat = appConfig?.imageOutputType;
     const resizedBuffer = await resizeAvatar({
       userId,
       input: avatarUrl,
+      desiredFormat,
     });
-    const { processAvatar } = getStrategyFunctions(fileStrategy);
-    updatedAvatar = await processAvatar({ buffer: resizedBuffer, userId, manual: 'false' });
-  }
-
-  if (updatedAvatar) {
-    updates.avatar = updatedAvatar;
+    const mimeType = `image/${desiredFormat ?? 'png'}`;
+    await saveUserAvatar({
+      userId,
+      buffer: resizedBuffer,
+      mimeType,
+      isCustom: false,
+    });
   }
 
   /** Update email if it has changed */
@@ -53,6 +50,7 @@ const handleExistingUser = async (oldUser, avatarUrl, appConfig, email) => {
   if (Object.keys(updates).length > 0) {
     await updateUser(oldUser._id, updates);
   }
+
 };
 
 /**
@@ -99,21 +97,20 @@ const createSocialUser = async ({
 
   const balanceConfig = getBalanceConfig(appConfig);
   const newUserId = await createUser(update, balanceConfig);
-  const fileStrategy = appConfig?.fileStrategy ?? process.env.CDN_PROVIDER;
-  const isLocal = fileStrategy === FileSources.local;
-
-  if (!isLocal) {
+  if (avatarUrl) {
+    const desiredFormat = appConfig?.imageOutputType;
     const resizedBuffer = await resizeAvatar({
       userId: newUserId,
       input: avatarUrl,
+      desiredFormat,
     });
-    const { processAvatar } = getStrategyFunctions(fileStrategy);
-    const avatar = await processAvatar({
-      buffer: resizedBuffer,
+    const mimeType = `image/${desiredFormat ?? 'png'}`;
+    await saveUserAvatar({
       userId: newUserId,
-      manual: 'false',
+      buffer: resizedBuffer,
+      mimeType,
+      isCustom: false,
     });
-    await updateUser(newUserId, { avatar });
   }
 
   return await getUserById(newUserId);

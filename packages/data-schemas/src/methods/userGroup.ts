@@ -3,6 +3,7 @@ import { PrincipalType } from 'librechat-data-provider';
 import type { TUser, TPrincipalSearchResult } from 'librechat-data-provider';
 import type { Model, ClientSession } from 'mongoose';
 import type { IGroup, IRole, IUser } from '~/types';
+import { bufferToDataUri } from '../utils';
 
 export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
   /**
@@ -457,14 +458,18 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
    * @param user - User object from database
    * @returns Transformed user result
    */
-  function transformUserToTPrincipalSearchResult(user: TUser): TPrincipalSearchResult {
+  function transformUserToTPrincipalSearchResult(
+    user: TUser & { avatarData?: Buffer; avatarMimeType?: string },
+  ): TPrincipalSearchResult {
+    const avatar =
+      bufferToDataUri(user.avatarData as Buffer | undefined, user.avatarMimeType) || user.avatar;
     return {
       id: user.id,
       type: PrincipalType.USER,
       name: user.name || user.email,
       email: user.email,
       username: user.username,
-      avatar: user.avatar,
+      avatar,
       provider: user.provider,
       source: 'local',
       idOnTheSource: (user as TUser & { idOnTheSource?: string }).idOnTheSource || user.id,
@@ -514,7 +519,8 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
 
     if (!typeFilter || typeFilter.includes(PrincipalType.USER)) {
       /** Note: searchUsers is imported from ~/models and needs to be passed in or implemented */
-      const userFields = 'name email username avatar provider idOnTheSource';
+      const userFields =
+        'name email username avatar avatarData avatarMimeType provider idOnTheSource';
       /** For now, we'll use a direct query instead of searchUsers */
       const User = mongoose.models.User as Model<IUser>;
       const regex = new RegExp(trimmedPattern, 'i');

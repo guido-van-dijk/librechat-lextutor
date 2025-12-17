@@ -7,7 +7,10 @@ export interface IUser extends Document {
   email: string;
   emailVerified: boolean;
   password?: string;
-  avatar?: string;
+  avatar?: string | Buffer;
+  avatarData?: Buffer;
+  avatarMimeType?: string;
+  avatarIsCustom?: boolean;
   provider: string;
   role?: string;
   googleId?: string;
@@ -59,7 +62,10 @@ export interface UpdateUserRequest {
   email?: string;
   role?: string;
   emailVerified?: boolean;
-  avatar?: string;
+  avatar?: string | Buffer;
+  avatarData?: Buffer;
+  avatarMimeType?: string;
+  avatarIsCustom?: boolean;
   plugins?: string[];
   twoFactorEnabled?: boolean;
   termsAccepted?: boolean;

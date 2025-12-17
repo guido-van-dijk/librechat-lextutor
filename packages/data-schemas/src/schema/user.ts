@@ -1,6 +1,7 @@
 import { Schema } from 'mongoose';
 import { SystemRoles } from 'librechat-data-provider';
 import { IUser } from '~/types';
+import { DEFAULT_AVATAR_MIME, bufferToDataUri } from '../utils';
 
 // Session sub-schema
 const SessionSchema = new Schema(
@@ -56,6 +57,18 @@ const userSchema = new Schema<IUser>(
     avatar: {
       type: String,
       required: false,
+    },
+    avatarData: {
+      type: Buffer,
+      required: false,
+    },
+    avatarMimeType: {
+      type: String,
+      default: DEFAULT_AVATAR_MIME,
+    },
+    avatarIsCustom: {
+      type: Boolean,
+      default: false,
     },
     provider: {
       type: String,
@@ -149,5 +162,24 @@ const userSchema = new Schema<IUser>(
   },
   { timestamps: true },
 );
+
+const transformAvatar = (_doc: unknown, ret: Partial<IUser & { avatarData?: Buffer }>) => {
+  if (ret.avatarData) {
+    const formatted = bufferToDataUri(ret.avatarData, ret.avatarMimeType);
+    if (formatted) {
+      ret.avatar = formatted;
+    }
+    delete ret.avatarData;
+  }
+  return ret;
+};
+
+userSchema.set('toJSON', {
+  transform: transformAvatar,
+});
+
+userSchema.set('toObject', {
+  transform: transformAvatar,
+});
 
 export default userSchema;

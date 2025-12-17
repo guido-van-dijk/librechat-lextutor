@@ -3,22 +3,15 @@ const path = require('path');
 const fetch = require('node-fetch');
 const passport = require('passport');
 const { ErrorTypes } = require('librechat-data-provider');
-const { hashToken, logger } = require('@librechat/data-schemas');
+const { logger } = require('@librechat/data-schemas');
 const { Strategy: SamlStrategy } = require('@node-saml/passport-saml');
 const { getBalanceConfig, isEmailDomainAllowed } = require('@librechat/api');
-const { getStrategyFunctions } = require('~/server/services/Files/strategies');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { findUser, createUser, updateUser } = require('~/models');
 const { getAppConfig } = require('~/server/services/Config');
 const paths = require('~/config/paths');
 
-let crypto;
-try {
-  crypto = require('node:crypto');
-} catch (err) {
-  logger.error('[samlStrategy] crypto support is disabled!', err);
-}
-
-/**
+/** 
  * Retrieves the certificate content from the given value.
  *
  * This function determines whether the provided value is a certificate string (RFC7468 format or
@@ -247,26 +240,28 @@ async function setupSaml() {
             user.name = fullName;
           }
 
+          const hasManualAvatar =
+            user?.avatarIsCustom ||
+            (typeof user?.avatar === 'string' && user.avatar.includes('manual=true'));
           const picture = getPicture(profile);
-          if (picture && !user.avatar?.includes('manual=true')) {
+          if (picture && !hasManualAvatar) {
             const imageBuffer = await downloadImage(profile.picture);
             if (imageBuffer) {
-              let fileName;
-              if (crypto) {
-                fileName = (await hashToken(profile.nameID)) + '.png';
-              } else {
-                fileName = profile.nameID + '.png';
-              }
-
-              const { saveBuffer } = getStrategyFunctions(
-                appConfig?.fileStrategy ?? process.env.CDN_PROVIDER,
-              );
-              const imagePath = await saveBuffer({
-                fileName,
+              const desiredFormat = appConfig?.imageOutputType;
+              const resizedBuffer = await resizeAvatar({
                 userId: user._id.toString(),
-                buffer: imageBuffer,
+                input: imageBuffer,
+                desiredFormat,
               });
-              user.avatar = imagePath ?? '';
+              const mimeType = `image/${desiredFormat ?? 'png'}`;
+              await saveUserAvatar({
+                userId: user._id.toString(),
+                buffer: resizedBuffer,
+                mimeType,
+                isCustom: false,
+              });
+              user.avatar = '';
+              user.avatarIsCustom = false;
             }
           }
 

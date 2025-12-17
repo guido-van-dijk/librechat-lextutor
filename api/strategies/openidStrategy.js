@@ -5,7 +5,7 @@ const passport = require('passport');
 const client = require('openid-client');
 const jwtDecode = require('jsonwebtoken/decode');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { hashToken, logger } = require('@librechat/data-schemas');
+const { logger } = require('@librechat/data-schemas');
 const { CacheKeys, ErrorTypes } = require('librechat-data-provider');
 const { Strategy: OpenIDStrategy } = require('openid-client/passport');
 const {
@@ -16,7 +16,7 @@ const {
   getBalanceConfig,
   isEmailDomainAllowed,
 } = require('@librechat/api');
-const { getStrategyFunctions } = require('~/server/services/Files/strategies');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { findUser, createUser, updateUser } = require('~/models');
 const { getAppConfig } = require('~/server/services/Config');
 const getLogStores = require('~/cache/getLogStores');
@@ -499,33 +499,33 @@ async function setupOpenId() {
             }
           }
 
-          if (!!userinfo && userinfo.picture && !user.avatar?.includes('manual=true')) {
-            /** @type {string | undefined} */
-            const imageUrl = userinfo.picture;
-
-            let fileName;
-            if (crypto) {
-              fileName = (await hashToken(userinfo.sub)) + '.png';
-            } else {
-              fileName = userinfo.sub + '.png';
-            }
-
+          const hasManualAvatar =
+            user?.avatarIsCustom ||
+            (typeof user?.avatar === 'string' && user.avatar.includes('manual=true'));
+          if (!!userinfo && userinfo.picture && !hasManualAvatar) {
             const imageBuffer = await downloadImage(
-              imageUrl,
+              userinfo.picture,
               openidConfig,
               tokenset.access_token,
               userinfo.sub,
             );
+
             if (imageBuffer) {
-              const { saveBuffer } = getStrategyFunctions(
-                appConfig?.fileStrategy ?? process.env.CDN_PROVIDER,
-              );
-              const imagePath = await saveBuffer({
-                fileName,
+              const desiredFormat = appConfig?.imageOutputType;
+              const resizedBuffer = await resizeAvatar({
                 userId: user._id.toString(),
-                buffer: imageBuffer,
+                input: imageBuffer,
+                desiredFormat,
               });
-              user.avatar = imagePath ?? '';
+              const mimeType = `image/${desiredFormat ?? 'png'}`;
+              await saveUserAvatar({
+                userId: user._id.toString(),
+                buffer: resizedBuffer,
+                mimeType,
+                isCustom: false,
+              });
+              user.avatar = '';
+              user.avatarIsCustom = false;
             }
           }
 

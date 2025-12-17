@@ -3,7 +3,7 @@
  */
 
 const mongoose = require('mongoose');
-const { logger } = require('@librechat/data-schemas');
+const { logger, bufferToDataUri } = require('@librechat/data-schemas');
 const { ResourceType, PrincipalType } = require('librechat-data-provider');
 const {
   bulkUpdateResourcePermissions,
@@ -243,12 +243,15 @@ const getResourcePermissions = async (req, res) => {
           publicAccessRoleId: result.accessRoleId,
         };
       } else if (result.principalType === PrincipalType.USER && result.userInfo) {
+        const avatar =
+          bufferToDataUri(result.userInfo.avatarData, result.userInfo.avatarMimeType) ||
+          result.userInfo.avatar;
         principals.push({
           type: PrincipalType.USER,
           id: result.userInfo._id.toString(),
           name: result.userInfo.name || result.userInfo.username,
           email: result.userInfo.email,
-          avatar: result.userInfo.avatar,
+          avatar,
           source: !result.userInfo._id ? 'entra' : 'local',
           idOnTheSource: result.userInfo.idOnTheSource || result.userInfo._id.toString(),
           accessRoleId: result.accessRoleId,

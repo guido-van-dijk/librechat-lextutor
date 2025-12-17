@@ -1,8 +1,9 @@
 const sharp = require('sharp');
 const fs = require('fs').promises;
 const fetch = require('node-fetch');
-const { logger } = require('@librechat/data-schemas');
+const { logger, bufferToDataUri, DEFAULT_AVATAR_MIME } = require('@librechat/data-schemas');
 const { EImageOutputType } = require('librechat-data-provider');
+const { updateUser } = require('~/models');
 const { resizeAndConvert } = require('./resize');
 
 /**
@@ -83,4 +84,32 @@ async function resizeAvatar({ userId, input, desiredFormat = EImageOutputType.PN
   }
 }
 
-module.exports = { resizeAvatar };
+/**
+ * Saves a resized avatar buffer directly on the user record and returns a data URI.
+ * @param {object} params
+ * @param {string} params.userId - User identifier
+ * @param {Buffer} params.buffer - Resized avatar buffer
+ * @param {string} [params.mimeType] - Mime type, defaults to PNG
+ * @param {boolean} [params.isCustom=false] - Whether the avatar comes from manual upload
+ * @returns {Promise<string>} data URI string of the avatar
+ */
+async function saveUserAvatar({ userId, buffer, mimeType = DEFAULT_AVATAR_MIME, isCustom = false }) {
+  if (!userId) {
+    throw new Error('User ID is required to save avatar');
+  }
+
+  if (!(buffer instanceof Buffer)) {
+    throw new Error('Avatar buffer must be a Buffer instance');
+  }
+
+  await updateUser(userId, {
+    avatarData: buffer,
+    avatarMimeType: mimeType,
+    avatarIsCustom: Boolean(isCustom),
+    avatar: '',
+  });
+
+  return bufferToDataUri(buffer, mimeType);
+}
+
+module.exports = { resizeAvatar, saveUserAvatar };

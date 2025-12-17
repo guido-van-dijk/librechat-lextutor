@@ -1,9 +1,7 @@
 const fs = require('fs').promises;
 const express = require('express');
 const { logger } = require('@librechat/data-schemas');
-const { getStrategyFunctions } = require('~/server/services/Files/strategies');
-const { resizeAvatar } = require('~/server/services/Files/images/avatar');
-const { getFileStrategy } = require('~/server/utils/getFileStrategy');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { filterFile } = require('~/server/services/Files/process');
 
 const router = express.Router();
@@ -20,7 +18,6 @@ router.post('/', async (req, res) => {
       throw new Error('User ID is undefined');
     }
 
-    const fileStrategy = getFileStrategy(appConfig, { isAvatar: true });
     const desiredFormat = appConfig.imageOutputType;
     const resizedBuffer = await resizeAvatar({
       userId,
@@ -28,8 +25,13 @@ router.post('/', async (req, res) => {
       desiredFormat,
     });
 
-    const { processAvatar } = getStrategyFunctions(fileStrategy);
-    const url = await processAvatar({ buffer: resizedBuffer, userId, manual });
+    const mimeType = `image/${desiredFormat}`;
+    const url = await saveUserAvatar({
+      userId,
+      buffer: resizedBuffer,
+      mimeType,
+      isCustom: manual === 'true',
+    });
 
     res.json({ url });
   } catch (error) {

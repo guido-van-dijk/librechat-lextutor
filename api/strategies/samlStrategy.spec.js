@@ -10,7 +10,6 @@ jest.mock('@librechat/data-schemas', () => ({
     debug: jest.fn(),
     error: jest.fn(),
   },
-  hashToken: jest.fn().mockResolvedValue('hashed-token'),
 }));
 jest.mock('~/models', () => ({
   findUser: jest.fn(),
@@ -35,10 +34,9 @@ jest.mock('@librechat/api', () => ({
 jest.mock('~/server/services/Config/EndpointService', () => ({
   config: {},
 }));
-jest.mock('~/server/services/Files/strategies', () => ({
-  getStrategyFunctions: jest.fn(() => ({
-    saveBuffer: jest.fn().mockResolvedValue('/fake/path/to/avatar.png'),
-  })),
+jest.mock('~/server/services/Files/images/avatar', () => ({
+  resizeAvatar: jest.fn().mockResolvedValue(Buffer.from('resized')),
+  saveUserAvatar: jest.fn().mockResolvedValue('data:image/png;base64,abc'),
 }));
 jest.mock('~/config/paths', () => ({
   root: '/fake/root/path',
@@ -47,6 +45,7 @@ jest.mock('~/config/paths', () => ({
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
+const { resizeAvatar, saveUserAvatar } = require('~/server/services/Files/images/avatar');
 const { Strategy: SamlStrategy } = require('@node-saml/passport-saml');
 const { setupSaml, getCertificateContent } = require('./samlStrategy');
 
@@ -430,7 +429,14 @@ u7wlOSk+oFzDIO/UILIA
     const { user } = await validate(profile);
 
     expect(fetch).toHaveBeenCalled();
-    expect(user.avatar).toBe('/fake/path/to/avatar.png');
+    expect(resizeAvatar).toHaveBeenCalled();
+    expect(saveUserAvatar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: expect.any(String),
+        isCustom: false,
+      }),
+    );
+    expect(user.avatar).toBe('');
   });
 
   it('should not attempt to download avatar if picture is not provided', async () => {
@@ -440,5 +446,7 @@ u7wlOSk+oFzDIO/UILIA
     await validate(profile);
 
     expect(fetch).not.toHaveBeenCalled();
+    expect(resizeAvatar).not.toHaveBeenCalled();
+    expect(saveUserAvatar).not.toHaveBeenCalled();
   });
 });

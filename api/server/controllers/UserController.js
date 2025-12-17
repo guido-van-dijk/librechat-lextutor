@@ -54,7 +54,8 @@ const getUserController = async (req, res) => {
   delete userData.password;
   delete userData.totpSecret;
   delete userData.backupCodes;
-  if (appConfig.fileStrategy === FileSources.s3 && userData.avatar) {
+  const isDataUriAvatar = typeof userData.avatar === 'string' && userData.avatar.startsWith('data:');
+  if (appConfig.fileStrategy === FileSources.s3 && userData.avatar && !isDataUriAvatar) {
     const avatarNeedsRefresh = needsRefresh(userData.avatar, 3600);
     if (!avatarNeedsRefresh) {
       return res.status(200).send(userData);
