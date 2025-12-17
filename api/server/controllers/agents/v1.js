@@ -851,10 +851,6 @@ const updateAgentCategory = async (req, res) => {
       return res.status(404).json({ message: 'Category not found' });
     }
 
-    if (!existingCategory.custom) {
-      return res.status(400).json({ message: 'Default categories cannot be modified' });
-    }
-
     const updated = await updateCategory(normalizedValue, payload);
     return res.status(200).json({
       value: updated.value,

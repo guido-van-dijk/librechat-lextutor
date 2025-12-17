@@ -33,7 +33,7 @@
   "com_agents_category_sales": "Verkoop",
   "com_agents_category_sales_description": "Agents gericht op salesprocessen, klantrelaties en opvolging",
   "com_agents_categories_manage": "Categorieën beheren",
-  "com_agents_categories_custom_only": "Alleen door beheerders aangemaakte categorieën kunnen worden bewerkt of verwijderd. Systeemcategorieën blijven vergrendeld.",
+  "com_agents_categories_custom_only": "Alle categorieën kunnen worden bewerkt. Alleen door beheerders aangemaakte categorieën kunnen worden verwijderd.",
   "com_agents_categories_none": "Nog geen categorieën gevonden.",
   "com_agents_categories_form_title": "Nieuwe categorie aanmaken",
   "com_agents_categories_edit_title": "Categorie bewerken",

@@ -23,7 +23,7 @@
   "com_agents_category_technology_engineering": "Technology & Engineering",
   "com_agents_category_technology_engineering_description": "Agents for computer science, robotics, engineering design, and classroom technology integration",
   "com_agents_categories_manage": "Manage Categories",
-  "com_agents_categories_custom_only": "Only admin-created categories can be edited or deleted. System categories remain locked.",
+  "com_agents_categories_custom_only": "All categories can be edited. Only admin-created categories can be deleted.",
   "com_agents_categories_none": "No categories found yet.",
   "com_agents_categories_form_title": "Create a new category",
   "com_agents_categories_edit_title": "Edit category",

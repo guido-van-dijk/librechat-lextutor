@@ -246,12 +246,7 @@ const CategoryManager: React.FC = () => {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!category.custom}
-                        onClick={() => handleEdit(category)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(category)}>
                         {localize('com_ui_edit')}
                       </Button>
                       <Button
