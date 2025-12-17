@@ -7,6 +7,7 @@ import {
   OGDialogTitle,
   OGDialogContent,
   OGDialogTrigger,
+  Switch,
   TextareaAutosize,
   useToastContext,
 } from '@librechat/client';
@@ -51,6 +52,8 @@ const CategoryManager: React.FC = () => {
   const [form, setForm] = React.useState<CategoryFormState>(initialForm);
   const [editingValue, setEditingValue] = React.useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
+  const [labelIsLocalized, setLabelIsLocalized] = React.useState(true);
+  const [descriptionIsLocalized, setDescriptionIsLocalized] = React.useState(true);
 
   const categoriesQuery = useGetAgentCategoriesQuery({
     refetchOnWindowFocus: false,
@@ -66,10 +69,43 @@ const CategoryManager: React.FC = () => {
     showToast({ status: 'error', message });
   };
 
+  const resetForm = React.useCallback(() => {
+    setForm(initialForm);
+    setEditingValue(null);
+    setLabelIsLocalized(true);
+    setDescriptionIsLocalized(true);
+  }, []);
+
+  const resolveLocalizedValue = React.useCallback(
+    (value?: string | null) =>
+      value?.startsWith('com_') ? localize(value as TranslationKeys) : value || '',
+    [localize],
+  );
+
+  const renderLocalizedPreview = React.useCallback(
+    (value: string) => {
+      if (!value) {
+        return null;
+      }
+
+      const preview = resolveLocalizedValue(value);
+      if (!preview) {
+        return null;
+      }
+
+      return (
+        <p className="text-xs text-text-tertiary">
+          {localize('com_agents_categories_localized_preview', { preview })}
+        </p>
+      );
+    },
+    [localize, resolveLocalizedValue],
+  );
+
   const { mutate: createCategory, isLoading: isCreating } = useCreateAgentCategoryMutation({
     onSuccess: () => {
       showToast({ status: 'success', message: localize('com_agents_categories_saved') });
-      setForm(initialForm);
+      resetForm();
     },
     onError: (error) => handleError(error, localize('com_agents_categories_error')),
   });
@@ -77,8 +113,7 @@ const CategoryManager: React.FC = () => {
   const { mutate: updateCategory, isLoading: isUpdating } = useUpdateAgentCategoryMutation({
     onSuccess: () => {
       showToast({ status: 'success', message: localize('com_agents_categories_saved') });
-      setForm(initialForm);
-      setEditingValue(null);
+      resetForm();
     },
     onError: (error) => handleError(error, localize('com_agents_categories_error')),
   });
@@ -87,19 +122,46 @@ const CategoryManager: React.FC = () => {
     onSuccess: () => {
       showToast({ status: 'success', message: localize('com_agents_categories_deleted') });
       if (editingValue && editingValue === pendingDelete) {
-        setForm(initialForm);
-        setEditingValue(null);
+        resetForm();
       }
     },
     onError: (error) => handleError(error, localize('com_agents_categories_error')),
     onSettled: () => setPendingDelete(null),
   });
 
+  const handleLabelLocalizationToggle = (checked: boolean) => {
+    setLabelIsLocalized(checked);
+    if (!checked) {
+      setForm((prev) => {
+        const localized = prev.label?.startsWith('com_') ? resolveLocalizedValue(prev.label) : prev.label;
+        const nextValue =
+          !editingValue && !prev.value ? slugify(localized || '') : prev.value;
+        return {
+          ...prev,
+          label: localized || prev.label,
+          value: nextValue,
+        };
+      });
+      return;
+    }
+  };
+
+  const handleDescriptionLocalizationToggle = (checked: boolean) => {
+    setDescriptionIsLocalized(checked);
+    if (!checked) {
+      setForm((prev) => ({
+        ...prev,
+        description:
+          prev.description?.startsWith('com_') ? resolveLocalizedValue(prev.description) : prev.description,
+      }));
+    }
+  };
+
   const handleLabelChange = (value: string) => {
     setForm((prev) => ({
       ...prev,
       label: value,
-      value: editingValue || prev.value ? prev.value : slugify(value),
+      value: !labelIsLocalized && !editingValue && !prev.value ? slugify(value) : prev.value,
     }));
   };
 
@@ -117,13 +179,10 @@ const CategoryManager: React.FC = () => {
     }));
   };
 
-  const resetForm = () => {
-    setForm(initialForm);
-    setEditingValue(null);
-  };
-
   const handleEdit = (category: TMarketplaceCategory) => {
     setEditingValue(category.value);
+    setLabelIsLocalized(Boolean(category.label?.startsWith('com_')));
+    setDescriptionIsLocalized(Boolean(category.description?.startsWith('com_')));
     setForm({
       value: category.value,
       label: category.label,
@@ -138,9 +197,7 @@ const CategoryManager: React.FC = () => {
 
     const confirmation = window.confirm(
       localize('com_agents_categories_delete_confirm', {
-        category: category.label?.startsWith('com_')
-          ? localize(category.label as TranslationKeys)
-          : category.label,
+        category: resolveLocalizedValue(category.label ?? ''),
       }),
     );
 
@@ -182,16 +239,9 @@ const CategoryManager: React.FC = () => {
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [categoriesQuery.data],
   );
+  const getDisplayName = (category: TMarketplaceCategory) => resolveLocalizedValue(category.label);
 
-  const getDisplayName = (category: TMarketplaceCategory) =>
-    category.label?.startsWith('com_')
-      ? localize(category.label as TranslationKeys)
-      : category.label;
-
-  const getDescription = (category: TMarketplaceCategory) =>
-    category.description?.startsWith('com_')
-      ? localize(category.description as TranslationKeys)
-      : category.description || '';
+  const getDescription = (category: TMarketplaceCategory) => resolveLocalizedValue(category.description);
 
   if (user?.role !== SystemRoles.ADMIN) {
     return null;
@@ -285,6 +335,15 @@ const CategoryManager: React.FC = () => {
                 placeholder={localize('com_agents_categories_label_placeholder')}
                 required
               />
+              {labelIsLocalized && form.label && renderLocalizedPreview(form.label)}
+              <div className="flex items-center justify-between text-xs text-text-tertiary">
+                <span>{localize('com_agents_categories_label_localized')}</span>
+                <Switch
+                  checked={labelIsLocalized}
+                  onCheckedChange={handleLabelLocalizationToggle}
+                  aria-label={localize('com_agents_categories_label_localized')}
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-text-secondary">
@@ -314,6 +373,15 @@ const CategoryManager: React.FC = () => {
                 onChange={(event) => handleDescriptionChange(event.target.value)}
                 placeholder={localize('com_agents_categories_description_placeholder')}
               />
+              {descriptionIsLocalized && form.description && renderLocalizedPreview(form.description)}
+              <div className="flex items-center justify-between text-xs text-text-tertiary">
+                <span>{localize('com_agents_categories_description_localized')}</span>
+                <Switch
+                  checked={descriptionIsLocalized}
+                  onCheckedChange={handleDescriptionLocalizationToggle}
+                  aria-label={localize('com_agents_categories_description_localized')}
+                />
+              </div>
             </div>
             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
               <Button type="submit" disabled={isSubmitting}>
