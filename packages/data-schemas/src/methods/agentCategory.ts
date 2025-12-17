@@ -194,9 +194,11 @@ export function createAgentCategoryMethods(mongoose: typeof import('mongoose')) 
 
     const existingCategories = await getAllCategories();
     const existingCategoryMap = new Map(existingCategories.map((cat) => [cat.value, cat]));
+    const defaultCategoryValues = new Set(defaultCategories.map((category) => category.value));
 
     const updates = [];
     let created = 0;
+    let removed = 0;
 
     for (const defaultCategory of defaultCategories) {
       const existingCategory = existingCategoryMap.get(defaultCategory.value);
@@ -222,6 +224,15 @@ export function createAgentCategoryMethods(mongoose: typeof import('mongoose')) 
       }
     }
 
+    const removableCategories = existingCategories.filter(
+      (category) => !defaultCategoryValues.has(category.value) && !category.custom,
+    );
+
+    if (removableCategories.length > 0) {
+      await AgentCategory.deleteMany({ _id: { $in: removableCategories.map((cat) => cat._id) } });
+      removed = removableCategories.length;
+    }
+
     if (updates.length > 0) {
       const bulkOps = updates.map((update) => ({
         updateOne: {
@@ -238,7 +249,7 @@ export function createAgentCategoryMethods(mongoose: typeof import('mongoose')) 
       await AgentCategory.bulkWrite(bulkOps, { ordered: false });
     }
 
-    return updates.length > 0 || created > 0;
+    return updates.length > 0 || created > 0 || removed > 0;
   }
 
   return {
