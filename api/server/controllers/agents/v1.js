@@ -45,7 +45,14 @@ const { filterFile } = require('~/server/services/Files/process');
 const { updateAction, getActions } = require('~/models/Action');
 const { getCachedTools } = require('~/server/services/Config');
 const { deleteFileByFilter } = require('~/models/File');
-const { getCategoriesWithCounts } = require('~/models');
+const {
+  getCategoriesWithCounts,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  findCategoryByValue,
+  getAllCategories,
+} = require('~/models');
 const { getLogStores } = require('~/cache');
 
 const systemTools = {
@@ -56,6 +63,34 @@ const systemTools = {
 
 const MAX_SEARCH_LEN = 100;
 const escapeRegex = (str = '') => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const categoryValueRegex = /^[a-z0-9-_]+$/i;
+const categoryCreateSchema = z.object({
+  value: z.string().min(2).max(64).regex(categoryValueRegex),
+  label: z.string().min(2).max(120),
+  description: z.string().max(400).optional(),
+  order: z.number().int().min(0).optional(),
+});
+
+const categoryUpdateSchema = z
+  .object({
+    label: z.string().min(2).max(120).optional(),
+    description: z.string().max(400).optional(),
+    order: z.number().int().min(0).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'No updates provided',
+  });
+
+const normalizeCategoryValue = (value = '') =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9-_]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '');
 
 /**
  * Opportunistically refreshes S3-backed avatars for agent list responses.
@@ -731,6 +766,9 @@ const getAgentCategories = async (_req, res) => {
       label: category.label,
       count: category.agentCount,
       description: category.description,
+      custom: Boolean(category.custom),
+      order: category.order,
+      isActive: category.isActive,
     }));
 
     if (promotedCount > 0) {
@@ -758,6 +796,104 @@ const getAgentCategories = async (_req, res) => {
     });
   }
 };
+
+const createAgentCategory = async (req, res) => {
+  try {
+    const payload = categoryCreateSchema.parse(req.body);
+    const normalizedValue = normalizeCategoryValue(payload.value);
+
+    const existingCategory = await findCategoryByValue(normalizedValue);
+    if (existingCategory) {
+      return res.status(409).json({ message: 'Category value already exists' });
+    }
+
+    const allCategories = await getAllCategories();
+    const inferredOrder =
+      payload.order ??
+      (allCategories.length > 0
+        ? Math.max(...allCategories.map((cat) => cat.order ?? 0)) + 1
+        : 0);
+
+    const category = await createCategory({
+      value: normalizedValue,
+      label: payload.label,
+      description: payload.description,
+      order: inferredOrder,
+      isActive: true,
+      custom: true,
+    });
+
+    return res.status(201).json({
+      value: category.value,
+      label: category.label,
+      description: category.description,
+      order: category.order,
+      isActive: category.isActive,
+      custom: category.custom,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Invalid category data', details: error.errors });
+    }
+    logger.error('[/Agents/Categories] Error creating category:', error);
+    return res.status(500).json({ message: 'Failed to create category' });
+  }
+};
+
+const updateAgentCategory = async (req, res) => {
+  try {
+    const { value } = req.params;
+    const payload = categoryUpdateSchema.parse(req.body);
+    const normalizedValue = normalizeCategoryValue(value);
+
+    const existingCategory = await findCategoryByValue(normalizedValue);
+    if (!existingCategory) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (!existingCategory.custom) {
+      return res.status(400).json({ message: 'Default categories cannot be modified' });
+    }
+
+    const updated = await updateCategory(normalizedValue, payload);
+    return res.status(200).json({
+      value: updated.value,
+      label: updated.label,
+      description: updated.description,
+      order: updated.order,
+      isActive: updated.isActive,
+      custom: updated.custom,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Invalid update data', details: error.errors });
+    }
+    logger.error('[/Agents/Categories] Error updating category:', error);
+    return res.status(500).json({ message: 'Failed to update category' });
+  }
+};
+
+const deleteAgentCategory = async (req, res) => {
+  try {
+    const { value } = req.params;
+    const normalizedValue = normalizeCategoryValue(value);
+    const existingCategory = await findCategoryByValue(normalizedValue);
+
+    if (!existingCategory) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (!existingCategory.custom) {
+      return res.status(400).json({ message: 'Default categories cannot be deleted' });
+    }
+
+    await deleteCategory(normalizedValue);
+    return res.status(204).send();
+  } catch (error) {
+    logger.error('[/Agents/Categories] Error deleting category:', error);
+    return res.status(500).json({ message: 'Failed to delete category' });
+  }
+};
 module.exports = {
   createAgent: createAgentHandler,
   getAgent: getAgentHandler,
@@ -768,4 +904,7 @@ module.exports = {
   uploadAgentAvatar: uploadAgentAvatarHandler,
   revertAgentVersion: revertAgentVersionHandler,
   getAgentCategories,
+  createAgentCategory,
+  updateAgentCategory,
+  deleteAgentCategory,
 };

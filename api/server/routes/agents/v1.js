@@ -2,6 +2,7 @@ const express = require('express');
 const { generateCheckAccess } = require('@librechat/api');
 const { PermissionTypes, Permissions, PermissionBits } = require('librechat-data-provider');
 const { requireJwtAuth, configMiddleware, canAccessAgentResource } = require('~/server/middleware');
+const checkAdmin = require('~/server/middleware/roles/admin');
 const v1 = require('~/server/controllers/agents/v1');
 const { getRoleByName } = require('~/models/Role');
 const actions = require('./actions');
@@ -49,6 +50,9 @@ router.use('/tools', configMiddleware, tools);
  * @route GET /agents/categories
  */
 router.get('/categories', v1.getAgentCategories);
+router.post('/categories', checkAdmin, v1.createAgentCategory);
+router.patch('/categories/:value', checkAdmin, v1.updateAgentCategory);
+router.delete('/categories/:value', checkAdmin, v1.deleteAgentCategory);
 /**
  * Creates an agent.
  * @route POST /agents

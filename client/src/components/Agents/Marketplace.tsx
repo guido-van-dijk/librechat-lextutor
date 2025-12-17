@@ -10,6 +10,7 @@ import type { ContextType } from '~/common';
 import { useDocumentTitle, useHasAccess, useLocalize, TranslationKeys } from '~/hooks';
 import { useGetEndpointsQuery, useGetAgentCategoriesQuery } from '~/data-provider';
 import MarketplaceAdminSettings from './MarketplaceAdminSettings';
+import CategoryManager from './CategoryManager';
 import { SidePanelProvider, useChatContext } from '~/Providers';
 import { SidePanelGroup } from '~/components/SidePanel';
 import { OpenSidebar } from '~/components/Chat/Menus';
@@ -332,11 +333,14 @@ const AgentMarketplace: React.FC<AgentMarketplaceProps> = ({ className = '' }) =
               >
                 <div className="container mx-auto max-w-4xl px-4">
                   {/* Search bar */}
-                  <div className="mx-auto flex max-w-2xl gap-2 pb-6">
-                    <SearchBar value={searchQuery} onSearch={handleSearch} />
-                    {/* TODO: Remove this once we have a better way to handle admin settings */}
-                    {/* Admin Settings */}
-                    <MarketplaceAdminSettings />
+                  <div className="mx-auto flex max-w-2xl flex-col gap-2 pb-6 md:flex-row md:items-center">
+                    <SearchBar className="md:flex-1" value={searchQuery} onSearch={handleSearch} />
+                    <div className="flex gap-2">
+                      <CategoryManager />
+                      {/* TODO: Remove this once we have a better way to handle admin settings */}
+                      {/* Admin Settings */}
+                      <MarketplaceAdminSettings />
+                    </div>
                   </div>
 
                   {/* Category tabs */}

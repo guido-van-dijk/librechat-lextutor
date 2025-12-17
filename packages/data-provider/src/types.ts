@@ -166,6 +166,8 @@ export type TCategory = {
   label: string;
   description?: string;
   custom?: boolean;
+  order?: number;
+  isActive?: boolean;
 };
 
 export type TMarketplaceCategory = TCategory & {

@@ -485,6 +485,36 @@ export const getAgentCategories = (): Promise<t.TMarketplaceCategory[]> => {
   return request.get(endpoints.agents({ path: 'categories' }));
 };
 
+export const createAgentCategory = (
+  data: m.CreateAgentCategoryInput,
+): Promise<t.TCategory> => {
+  return request.post(
+    endpoints.agents({
+      path: 'categories',
+    }),
+    data,
+  );
+};
+
+export const updateAgentCategory = (
+  payload: m.UpdateAgentCategoryInput,
+): Promise<t.TCategory> => {
+  return request.patch(
+    endpoints.agents({
+      path: `categories/${payload.value}`,
+    }),
+    payload.data,
+  );
+};
+
+export const deleteAgentCategory = ({ value }: m.DeleteAgentCategoryInput): Promise<void> => {
+  return request.delete(
+    endpoints.agents({
+      path: `categories/${value}`,
+    }),
+  );
+};
+
 /**
  * Unified marketplace agents endpoint with query string controls
  */

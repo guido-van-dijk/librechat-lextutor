@@ -403,6 +403,54 @@ export const useRevertAgentVersionMutation = (
   );
 };
 
+export const useCreateAgentCategoryMutation = (
+  options?: t.CreateAgentCategoryOptions,
+): UseMutationResult<t.TCategory, unknown, t.CreateAgentCategoryInput> => {
+  const queryClient = useQueryClient();
+  return useMutation<t.TCategory, unknown, t.CreateAgentCategoryInput>({
+    mutationKey: [MutationKeys.createAgentCategory],
+    mutationFn: (variables) => dataService.createAgentCategory(variables),
+    onMutate: options?.onMutate,
+    onError: options?.onError,
+    onSuccess: (data, variables, context) => {
+      queryClient.invalidateQueries([QueryKeys.agentCategories]);
+      options?.onSuccess?.(data, variables, context);
+    },
+  });
+};
+
+export const useUpdateAgentCategoryMutation = (
+  options?: t.UpdateAgentCategoryOptions,
+): UseMutationResult<t.TCategory, unknown, t.UpdateAgentCategoryInput> => {
+  const queryClient = useQueryClient();
+  return useMutation<t.TCategory, unknown, t.UpdateAgentCategoryInput>({
+    mutationKey: [MutationKeys.updateAgentCategory],
+    mutationFn: (variables) => dataService.updateAgentCategory(variables),
+    onMutate: options?.onMutate,
+    onError: options?.onError,
+    onSuccess: (data, variables, context) => {
+      queryClient.invalidateQueries([QueryKeys.agentCategories]);
+      options?.onSuccess?.(data, variables, context);
+    },
+  });
+};
+
+export const useDeleteAgentCategoryMutation = (
+  options?: t.DeleteAgentCategoryOptions,
+): UseMutationResult<void, unknown, t.DeleteAgentCategoryInput> => {
+  const queryClient = useQueryClient();
+  return useMutation<void, unknown, t.DeleteAgentCategoryInput>({
+    mutationKey: [MutationKeys.deleteAgentCategory],
+    mutationFn: (variables) => dataService.deleteAgentCategory(variables),
+    onMutate: options?.onMutate,
+    onError: options?.onError,
+    onSuccess: (data, variables, context) => {
+      queryClient.invalidateQueries([QueryKeys.agentCategories]);
+      options?.onSuccess?.(data, variables, context);
+    },
+  });
+};
+
 export const invalidateAgentMarketplaceQueries = (queryClient: QueryClient) => {
   queryClient.invalidateQueries([QueryKeys.marketplaceAgents]);
 };

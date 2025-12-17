@@ -172,6 +172,31 @@ export type RevertAgentVersionVariables = {
 
 export type RevertAgentVersionOptions = MutationOptions<Agent, RevertAgentVersionVariables>;
 
+export type CreateAgentCategoryInput = {
+  value: string;
+  label: string;
+  description?: string;
+  order?: number;
+};
+
+export type UpdateAgentCategoryInput = {
+  value: string;
+  data: Partial<Omit<CreateAgentCategoryInput, 'value'>> & { isActive?: boolean };
+};
+
+export type DeleteAgentCategoryInput = {
+  value: string;
+};
+
+export type CreateAgentCategoryOptions = MutationOptions<types.TCategory, CreateAgentCategoryInput>;
+
+export type UpdateAgentCategoryOptions = MutationOptions<
+  types.TCategory,
+  UpdateAgentCategoryInput
+>;
+
+export type DeleteAgentCategoryOptions = MutationOptions<void, DeleteAgentCategoryInput>;
+
 export type DeleteConversationOptions = MutationOptions<
   types.TDeleteConversationResponse,
   types.TDeleteConversationRequest
