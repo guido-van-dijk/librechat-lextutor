@@ -508,6 +508,8 @@
   "com_admin_console_branding_description": "Update titles, help links, and logos to match your organization.",
   "com_admin_console_groups": "Groups & access",
   "com_admin_console_groups_description": "Organize users and keep group roles in sync for sharing prompts, agents, and other resources.",
+  "com_ui_share_groups_quick_add": "Groups",
+  "com_ui_share_groups_quick_add_desc": "Select a group to share this resource with every member at once.",
   "com_nav_confirm_clear": "Confirm Clear",
   "com_nav_conversation_mode": "Conversation Mode",
   "com_nav_convo_menu_options": "Conversation Menu Options",

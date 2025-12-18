@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AccessRoleIds, ResourceType, PrincipalType } from 'librechat-data-provider';
 import { Share2Icon, Users, Link, CopyCheck, UserX, UserCheck } from 'lucide-react';
 import {
@@ -25,6 +25,7 @@ import PeoplePickerAdminSettings from './PeoplePickerAdminSettings';
 import PublicSharingToggle from './PublicSharingToggle';
 import { SelectedPrincipalsList } from './PeoplePicker';
 import { cn } from '~/utils';
+import { useGroupsQuery } from '~/data-provider';
 
 type GroupRoleThreshold = 'viewer' | 'editor' | 'owner';
 const DEFAULT_GROUP_ROLES: GroupRoleThreshold[] = ['viewer', 'editor', 'owner'];
@@ -90,6 +91,9 @@ export default function GenericGrantAccessDialog({
   const [defaultPermissionId, setDefaultPermissionId] = useState<AccessRoleIds | undefined>(
     config?.defaultViewerRoleId,
   );
+  const { data: availableGroups = [] } = useGroupsQuery({
+    enabled: isModalOpen,
+  });
 
   // Sync all shares with current shares when modal opens, marking existing vs new
   useEffect(() => {
@@ -146,6 +150,23 @@ export default function GenericGrantAccessDialog({
   const handleRemoveShare = (idOnTheSource: string) => {
     setAllShares(allShares.filter((s) => s.idOnTheSource !== idOnTheSource));
     setHasChanges(true);
+  };
+
+  const handleAddGroupShare = (groupId: string) => {
+    const group = availableGroups.find((g) => g.id === groupId);
+    if (!group) {
+      return;
+    }
+    handleAddFromSearch([
+      {
+        type: PrincipalType.GROUP,
+        id: group.id,
+        idOnTheSource: group.id,
+        name: group.name,
+        email: group.email,
+        source: 'local',
+      },
+    ]);
   };
 
   // Handler for changing individual share permissions
@@ -260,6 +281,10 @@ export default function GenericGrantAccessDialog({
 
   // Validation and calculated values
   const totalCurrentShares = currentShares.length + (currentIsPublic ? 1 : 0);
+  const groupShares = useMemo(
+    () => allShares.filter((share) => share.type === PrincipalType.GROUP),
+    [allShares],
+  );
 
   // Check if there's at least one owner (user, group, or public with owner role)
   const hasAtLeastOneOwner =
@@ -322,12 +347,45 @@ export default function GenericGrantAccessDialog({
                   {localize('com_ui_user_group_permissions')} ( {allShares.length} )
                 </h4>
 
-                <UnifiedPeopleSearch
-                  onAddPeople={handleAddFromSearch}
-                  placeholder={localize('com_ui_search_people_placeholder')}
-                  typeFilter={peoplePickerTypeFilter}
-                  excludeIds={allShares.map((s) => s.idOnTheSource)}
-                />
+               <UnifiedPeopleSearch
+                 onAddPeople={handleAddFromSearch}
+                 placeholder={localize('com_ui_search_people_placeholder')}
+                 typeFilter={peoplePickerTypeFilter}
+                 excludeIds={allShares.map((s) => s.idOnTheSource)}
+               />
+                {availableGroups.length > 0 && (
+                  <div className="space-y-2 rounded-xl border border-border-light bg-surface-primary/60 p-3">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                        {localize('com_ui_share_groups_quick_add')}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {localize('com_ui_share_groups_quick_add_desc')}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableGroups.map((group) => {
+                        const isSelected = groupShares.some((share) => share.id === group.id);
+                        return (
+                          <button
+                            key={group.id}
+                            type="button"
+                            disabled={isSelected}
+                            onClick={() => handleAddGroupShare(group.id)}
+                            className={cn(
+                              'rounded-full border px-3 py-1 text-sm transition',
+                              isSelected
+                                ? 'cursor-not-allowed border-border-light bg-surface-secondary text-text-secondary'
+                                : 'border-border-medium bg-transparent text-text-primary hover:border-border-heavy',
+                            )}
+                          >
+                            {group.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Unified User/Group List */}
                 {(() => {

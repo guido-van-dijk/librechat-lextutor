@@ -384,6 +384,8 @@
   "com_admin_console_branding_description": "Pas titels, hulp-links en logo's aan zodat ze bij jouw organisatie passen.",
   "com_admin_console_groups": "Groepen & toegang",
   "com_admin_console_groups_description": "Organiseer gebruikers en houd groepsrollen in sync voor het delen van prompts, agents en andere resources.",
+  "com_ui_share_groups_quick_add": "Groepen",
+  "com_ui_share_groups_quick_add_desc": "Selecteer een groep om deze resource direct met alle leden te delen.",
   "com_ui_group_role_label": "Minimale groepsrol",
   "com_ui_group_role_any": "Alle leden",
   "com_ui_group_role_editors": "Editors en eigenaren",

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Input, Label, SelectDropDown, Spinner, useToastContext } from '@librechat/client';
+import { Button, Input, Label, Spinner, useToastContext } from '@librechat/client';
 import {
   useGroupsQuery,
   useCreateGroupMutation,
@@ -59,6 +59,29 @@ export default function GroupsSettings() {
       { value: 'viewer', label: localize('com_ui_role_viewer') },
     ],
     [localize],
+  );
+
+  const RoleSelect = ({
+    value,
+    onChange,
+    disabled,
+  }: {
+    value: ManageMemberRole;
+    onChange: (value: ManageMemberRole) => void;
+    disabled?: boolean;
+  }) => (
+    <select
+      className="rounded-md border border-border-medium bg-surface-primary px-2 py-1 text-sm text-text-primary"
+      value={value}
+      onChange={(event) => onChange(event.target.value as ManageMemberRole)}
+      disabled={disabled}
+    >
+      {roleOptions.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 
   const getRoleLabel = (role: string) =>
@@ -427,15 +450,10 @@ export default function GroupsSettings() {
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <SelectDropDown
-                              value={member.role}
-                              options={roleOptions}
+                            <RoleSelect
+                              value={member.role as ManageMemberRole}
                               onChange={(value) =>
-                                handleChangeRole(
-                                  group.id,
-                                  member.userId,
-                                  value as ManageMemberRole,
-                                )
+                                handleChangeRole(group.id, member.userId, value)
                               }
                               disabled={manageMember.isLoading}
                             />
@@ -466,15 +484,14 @@ export default function GroupsSettings() {
                       }))
                     }
                   />
-                  <SelectDropDown
-                    value={inviteStates[group.id]?.role ?? 'viewer'}
+                  <RoleSelect
+                    value={(inviteStates[group.id]?.role ?? 'viewer') as ManageMemberRole}
                     onChange={(value) =>
                       setInviteStates((prev) => ({
                         ...prev,
                         [group.id]: { email: prev[group.id]?.email ?? '', role: value },
                       }))
                     }
-                    options={roleOptions}
                   />
                   <div className="flex justify-end">
                     <Button
