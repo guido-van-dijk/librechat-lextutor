@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { SettingsTabValues } from 'librechat-data-provider';
-import { MessageSquare, Command, DollarSign } from 'lucide-react';
+import { SettingsTabValues, SystemRoles } from 'librechat-data-provider';
+import { MessageSquare, Command, DollarSign, Palette } from 'lucide-react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import {
   GearIcon,
@@ -21,9 +21,11 @@ import {
   Data,
   Balance,
   Account,
+  Admin,
 } from './SettingsTabs';
 import usePersonalizationAccess from '~/hooks/usePersonalizationAccess';
 import { useLocalize, TranslationKeys } from '~/hooks';
+import { useAuthContext } from '~/hooks/AuthContext';
 import { useGetStartupConfig } from '~/data-provider';
 import { cn } from '~/utils';
 
@@ -31,6 +33,7 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
   const isSmallScreen = useMediaQuery('(max-width: 767px)');
   const { data: startupConfig } = useGetStartupConfig();
   const localize = useLocalize();
+  const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState(SettingsTabValues.GENERAL);
   const tabRefs = useRef({});
   const { hasAnyPersonalizationFeature, hasMemoryOptOut } = usePersonalizationAccess();
@@ -44,6 +47,7 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
       ...(hasAnyPersonalizationFeature ? [SettingsTabValues.PERSONALIZATION] : []),
       SettingsTabValues.DATA,
       ...(startupConfig?.balance?.enabled ? [SettingsTabValues.BALANCE] : []),
+      ...(isAdmin ? [SettingsTabValues.ADMIN] : []),
       SettingsTabValues.ACCOUNT,
     ];
     const currentIndex = tabs.indexOf(activeTab);
@@ -113,6 +117,15 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
             value: SettingsTabValues.BALANCE,
             icon: <DollarSign size={18} />,
             label: 'com_nav_setting_balance' as TranslationKeys,
+          },
+        ]
+      : ([] as { value: SettingsTabValues; icon: React.JSX.Element; label: TranslationKeys }[])),
+    ...(isAdmin
+      ? [
+          {
+            value: SettingsTabValues.ADMIN,
+            icon: <Palette size={18} />,
+            label: 'com_nav_setting_branding' as TranslationKeys,
           },
         ]
       : ([] as { value: SettingsTabValues; icon: React.JSX.Element; label: TranslationKeys }[])),
@@ -251,6 +264,11 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
                     <Tabs.Content value={SettingsTabValues.ACCOUNT} tabIndex={-1}>
                       <Account />
                     </Tabs.Content>
+                    {isAdmin && (
+                      <Tabs.Content value={SettingsTabValues.ADMIN} tabIndex={-1}>
+                        <Admin />
+                      </Tabs.Content>
+                    )}
                   </div>
                 </Tabs.Root>
               </div>

@@ -177,6 +177,16 @@ export const getStartupConfig = (): Promise<
   return request.get(endpoints.config());
 };
 
+export const getBrandingConfig = (): Promise<t.TBrandingConfig> => {
+  return request.get(endpoints.adminBranding());
+};
+
+export const updateBrandingConfig = (
+  payload: t.TUpdateBrandingRequest,
+): Promise<t.TBrandingConfig> => {
+  return request.put(endpoints.adminBranding(), payload);
+};
+
 export const getAIEndpoints = (): Promise<t.TEndpointsConfig> => {
   return request.get(endpoints.aiEndpoints());
 };

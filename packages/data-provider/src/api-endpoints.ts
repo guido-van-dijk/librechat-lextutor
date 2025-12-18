@@ -173,6 +173,7 @@ export const cancelMCPOAuth = (serverName: string) => {
 export const config = () => `${BASE_URL}/api/config`;
 
 export const prompts = () => `${BASE_URL}/api/prompts`;
+export const adminBranding = () => `${BASE_URL}/api/admin/branding`;
 
 export const addPromptToGroup = (groupId: string) =>
   `${BASE_URL}/api/prompts/groups/${groupId}/prompts`;

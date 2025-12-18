@@ -643,6 +643,11 @@ export type TStartupConfig = {
   showBirthdayIcon: boolean;
   helpAndFaqURL: string;
   customFooter?: string;
+  branding?: {
+    logo?: string;
+    helpUrl?: string;
+    customFooter?: string;
+  };
   modelSpecs?: TSpecsConfig;
   modelDescriptions?: Record<string, Record<string, string>>;
   sharedLinksEnabled: boolean;
@@ -1551,6 +1556,10 @@ export enum SettingsTabValues {
    * Tab for Personalization Settings
    */
   PERSONALIZATION = 'personalization',
+  /**
+   * Tab for Admin/Branding settings
+   */
+  ADMIN = 'admin',
 }
 
 export enum STTProviders {

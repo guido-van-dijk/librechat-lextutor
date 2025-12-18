@@ -45,6 +45,21 @@ export const useGetPresetsQuery = (
   });
 };
 
+export const useBrandingQuery = (
+  config?: UseQueryOptions<t.TBrandingConfig>,
+): QueryObserverResult<t.TBrandingConfig> => {
+  return useQuery<t.TBrandingConfig>(
+    [QueryKeys.branding],
+    () => dataService.getBrandingConfig(),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      ...config,
+    },
+  );
+};
+
 export const useGetConvoIdQuery = (
   id: string,
   config?: UseQueryOptions<t.TConversation>,

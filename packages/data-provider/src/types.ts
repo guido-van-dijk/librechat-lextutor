@@ -209,6 +209,15 @@ export type TUser = {
   updatedAt: string;
 };
 
+export type TBrandingConfig = {
+  appTitle: string;
+  logoDataUri: string;
+  helpUrl: string;
+  customFooter: string;
+};
+
+export type TUpdateBrandingRequest = Partial<TBrandingConfig>;
+
 export type TGetConversationsResponse = {
   conversations: TConversation[];
   pageNumber: string;

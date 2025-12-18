@@ -13,6 +13,7 @@ const { getProjectByName } = require('~/models/Project');
 const { getMCPManager } = require('~/config');
 const { getLogStores } = require('~/cache');
 const { mcpServersRegistry } = require('@librechat/api');
+const { getBrandingConfig } = require('~/models/Branding');
 
 const router = express.Router();
 const emailLoginEnabled =
@@ -154,6 +155,33 @@ router.get('/', async function (req, res) {
       conversationImportMaxFileSize: process.env.CONVERSATION_IMPORT_MAX_FILE_SIZE_BYTES
         ? parseInt(process.env.CONVERSATION_IMPORT_MAX_FILE_SIZE_BYTES, 10)
         : 0,
+    };
+
+    const brandingConfig = await getBrandingConfig();
+    const brandingDefaults = {
+      appTitle: payload.appTitle,
+      helpUrl: payload.helpAndFaqURL,
+      customFooter: payload.customFooter ?? '',
+      logoDataUri: '',
+    };
+    const branding = brandingConfig ? { ...brandingDefaults, ...brandingConfig } : brandingDefaults;
+
+    if (branding.appTitle) {
+      payload.appTitle = branding.appTitle;
+    }
+
+    if (branding.helpUrl) {
+      payload.helpAndFaqURL = branding.helpUrl;
+    }
+
+    if (typeof branding.customFooter === 'string' && branding.customFooter !== '') {
+      payload.customFooter = branding.customFooter;
+    }
+
+    payload.branding = {
+      logo: branding.logoDataUri || '',
+      helpUrl: branding.helpUrl || payload.helpAndFaqURL,
+      customFooter: branding.customFooter || payload.customFooter,
     };
 
     const minPasswordLength = parseInt(process.env.MIN_PASSWORD_LENGTH, 10);

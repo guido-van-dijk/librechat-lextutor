@@ -43,6 +43,19 @@ export const useGenTitleMutation = (): TGenTitleMutation => {
   });
 };
 
+export const useUpdateBrandingMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (payload: t.TUpdateBrandingRequest) => dataService.updateBrandingConfig(payload),
+    {
+      onSuccess: (response) => {
+        queryClient.setQueryData([QueryKeys.branding], response);
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.startupConfig] });
+      },
+    },
+  );
+};
+
 export const useUpdateConversationMutation = (
   id: string,
 ): UseMutationResult<
