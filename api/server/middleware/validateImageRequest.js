@@ -60,10 +60,30 @@ function createValidateImageRequest(secureImageLinks) {
    * Must be set by `secureImageLinks` via custom config file.
    */
   return async function validateImageRequest(req, res, next) {
+    logger.debug('[validateImageRequest] incoming', {
+      originalUrl: req.originalUrl,
+      url: req.url,
+      path: req.path,
+    });
+
     const basePath = getBasePath();
-    const imagesPath = `${basePath}/images`;
+    const rawImagesPath = `${basePath}/images`;
+    const imagesPath = rawImagesPath.replace(/\/+$/, '');
     const MAX_URL_LENGTH = 2048;
     const originalUrl = req.originalUrl || '';
+    const requestPath = originalUrl.split('?')[0];
+    const escapedImagesPath = imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const agentAvatarPattern = new RegExp(
+      `^${escapedImagesPath}/[a-f0-9]{24}/agent-[^/]+\\.(png|jpg|jpeg|webp|gif)$`,
+      'i',
+    );
+
+    if (agentAvatarPattern.test(requestPath)) {
+      logger.debug('[validateImageRequest] Bypassing auth for public agent avatar', {
+        requestPath,
+      });
+      return next();
+    }
 
     if (originalUrl.length > MAX_URL_LENGTH) {
       logger.warn('[validateImageRequest] URL too long');
@@ -83,14 +103,7 @@ function createValidateImageRequest(secureImageLinks) {
       return res.status(403).send('Access Denied');
     }
 
-    const requestPath = fullPath.split('?')[0];
-    const agentAvatarPattern = new RegExp(
-      `^${imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[a-f0-9]{24}/agent-[^/]*$`,
-    );
-    if (agentAvatarPattern.test(requestPath)) {
-      logger.debug('[validateImageRequest] Bypassing auth for public agent avatar');
-      return next();
-    }
+    const decodedRequestPath = fullPath.split('?')[0];
 
     try {
       const cookieHeader = req.headers.cookie;
@@ -139,10 +152,10 @@ function createValidateImageRequest(secureImageLinks) {
 
       const escapedUserId = userIdForPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pathPattern = new RegExp(
-        `^${imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/${escapedUserId}/[^/]+$`,
+        `^${escapedImagesPath}/${escapedUserId}/[^/]+$`,
       );
 
-      if (pathPattern.test(fullPath)) {
+      if (pathPattern.test(decodedRequestPath)) {
         logger.debug('[validateImageRequest] Image request validated');
         next();
       } else {
