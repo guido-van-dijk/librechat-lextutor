@@ -34,6 +34,7 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
   const { data: startupConfig } = useGetStartupConfig();
   const localize = useLocalize();
   const { user } = useAuthContext();
+  const isAdmin = user?.role === SystemRoles.ADMIN;
   const [activeTab, setActiveTab] = useState(SettingsTabValues.GENERAL);
   const tabRefs = useRef({});
   const { hasAnyPersonalizationFeature, hasMemoryOptOut } = usePersonalizationAccess();
