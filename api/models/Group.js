@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { SystemRoles } = require('librechat-data-provider');
-const { Group, User } = require('~/db/models');
+const { Group, User, AclEntry } = require('~/db/models');
 
 const GROUP_ROLES = ['owner', 'editor', 'viewer'];
 
@@ -262,6 +262,21 @@ const removeGroupMember = async (groupId, memberId) => {
   return formatGroup(updated);
 };
 
+const deleteGroup = async (groupId) => {
+  const group = await Group.findById(groupId);
+  if (!group) {
+    throw new Error('Group not found');
+  }
+
+  await Group.deleteOne({ _id: groupId });
+  await AclEntry.deleteMany({
+    principalType: 'group',
+    principalId: group._id,
+  });
+
+  return formatGroup(group);
+};
+
 module.exports = {
   listGroups,
   createGroup,
@@ -269,4 +284,5 @@ module.exports = {
   addGroupMember,
   updateGroupMember,
   removeGroupMember,
+  deleteGroup,
 };

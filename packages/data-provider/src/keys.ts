@@ -96,4 +96,5 @@ export enum MutationKeys {
   createGroup = 'createGroup',
   updateGroup = 'updateGroup',
   manageGroupMember = 'manageGroupMember',
+  deleteGroup = 'deleteGroup',
 }

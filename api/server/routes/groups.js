@@ -9,6 +9,7 @@ const {
   addGroupMember,
   updateGroupMember,
   removeGroupMember,
+  deleteGroup,
 } = require('~/models/Group');
 
 const router = express.Router();
@@ -86,6 +87,16 @@ router.delete('/:groupId/members/:memberId', checkAdmin, async (req, res) => {
   } catch (error) {
     logger.error('[DELETE /groups/:groupId/members/:memberId] Failed to remove member', error);
     res.status(400).json({ message: error.message || 'Failed to remove member' });
+  }
+});
+
+router.delete('/:groupId', checkAdmin, async (req, res) => {
+  try {
+    await deleteGroup(req.params.groupId);
+    res.status(204).send();
+  } catch (error) {
+    logger.error('[DELETE /groups/:groupId] Failed to delete group', error);
+    res.status(400).json({ message: error.message || 'Failed to delete group' });
   }
 });
 

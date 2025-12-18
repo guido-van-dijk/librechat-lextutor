@@ -80,6 +80,16 @@ export const useUpdateGroupMutation = () => {
   );
 };
 
+export const useDeleteGroupMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation((groupId: string) => dataService.deleteGroup(groupId), {
+    mutationKey: [MutationKeys.deleteGroup],
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.groups] });
+    },
+  });
+};
+
 export const useManageGroupMemberMutation = () => {
   const queryClient = useQueryClient();
   return useMutation(

@@ -199,6 +199,10 @@ export const updateGroup = (groupId: string, payload: t.TUpdateGroupRequest): Pr
   return request.patch(endpoints.group(groupId), payload);
 };
 
+export const deleteGroup = (groupId: string): Promise<void> => {
+  return request.delete(endpoints.group(groupId));
+};
+
 export const addGroupMember = (
   groupId: string,
   payload: t.TManageGroupMemberRequest,

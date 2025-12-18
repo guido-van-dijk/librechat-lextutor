@@ -5,6 +5,7 @@ import {
   useCreateGroupMutation,
   useManageGroupMemberMutation,
   useUpdateGroupMutation,
+  useDeleteGroupMutation,
 } from '~/data-provider';
 import { useLocalize } from '~/hooks';
 
@@ -42,6 +43,7 @@ export default function GroupsSettings() {
   const createGroup = useCreateGroupMutation();
   const manageMember = useManageGroupMemberMutation();
   const updateGroup = useUpdateGroupMutation();
+  const deleteGroup = useDeleteGroupMutation();
   const { showToast } = useToastContext();
   const localize = useLocalize();
 
@@ -220,6 +222,29 @@ export default function GroupsSettings() {
   const isSavingGroup = (groupId: string) => updateGroup.isLoading && savingGroupId === groupId;
   const canCreateGroup = Boolean(newGroup.name.trim());
 
+  const handleDeleteGroup = (groupId: string, groupName: string) => {
+    const confirmed = window.confirm(
+      localize('com_admin_groups_delete_confirm', {
+        0: groupName || localize('com_admin_groups_delete_fallback'),
+      }),
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    deleteGroup.mutate(groupId, {
+      onSuccess: () => {
+        showToast({ message: localize('com_admin_groups_deleted'), variant: 'success' });
+        cancelEditingGroup(groupId);
+      },
+      onError: (error) =>
+        showToast({
+          message: getErrorMessage(error) ?? localize('com_ui_error'),
+          variant: 'danger',
+        }),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -364,6 +389,16 @@ export default function GroupsSettings() {
                               {localize('com_ui_edit')}
                             </Button>
                           )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive focus-visible:text-destructive"
+                            onClick={() => handleDeleteGroup(group.id, group.name)}
+                            disabled={deleteGroup.isLoading}
+                          >
+                            {localize('com_admin_groups_delete')}
+                          </Button>
                         </div>
                       </div>
                     </div>
