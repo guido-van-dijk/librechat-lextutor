@@ -25,6 +25,8 @@ const {
 } = require('~/models');
 const { AclEntry, AccessRole, Group } = require('~/db/models');
 
+const ALL_GROUP_ROLES = ['owner', 'editor', 'viewer'];
+
 /** @type {boolean|null} */
 let transactionSupportCache = null;
 
@@ -63,6 +65,7 @@ const grantPermission = async ({
   accessRoleId,
   grantedBy,
   session,
+  groupRoles,
 }) => {
   try {
     if (!Object.values(PrincipalType).includes(principalType)) {
@@ -115,6 +118,7 @@ const grantPermission = async ({
       grantedBy,
       session,
       role._id,
+      groupRoles,
     );
   } catch (error) {
     logger.error(`[PermissionService.grantPermission] Error: ${error.message}`);
@@ -660,6 +664,15 @@ const bulkUpdateResourcePermissions = async ({
           },
         };
 
+        if (principal.type === PrincipalType.GROUP) {
+          update.$set.groupRoles =
+            Array.isArray(principal.groupRoles) && principal.groupRoles.length > 0
+              ? principal.groupRoles
+              : ALL_GROUP_ROLES;
+        } else {
+          update.$unset = { groupRoles: '' };
+        }
+
         bulkWrites.push({
           updateOne: {
             filter: query,
@@ -680,6 +693,12 @@ const bulkUpdateResourcePermissions = async ({
           accessRoleId: principal.accessRoleId,
           memberCount: principal.memberCount,
           memberIds: principal.memberIds,
+          groupRoles:
+            principal.type === PrincipalType.GROUP
+              ? principal.groupRoles && principal.groupRoles.length > 0
+                ? principal.groupRoles
+                : ALL_GROUP_ROLES
+              : undefined,
         });
       } catch (error) {
         results.errors.push({
@@ -721,6 +740,7 @@ const bulkUpdateResourcePermissions = async ({
           description: principal.description,
           idOnTheSource: principal.idOnTheSource,
           memberCount: principal.memberCount,
+          groupRoles: principal.groupRoles,
         });
       } catch (error) {
         results.errors.push({

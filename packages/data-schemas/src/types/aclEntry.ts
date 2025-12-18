@@ -1,5 +1,6 @@
 import type { Document, Types } from 'mongoose';
 import { PrincipalType, PrincipalModel, ResourceType } from 'librechat-data-provider';
+import type { GroupRole } from './group';
 
 export type AclEntry = {
   /** The type of principal (PrincipalType.USER, PrincipalType.GROUP, PrincipalType.PUBLIC) */
@@ -22,6 +23,8 @@ export type AclEntry = {
   grantedBy?: Types.ObjectId;
   /** When this permission was granted */
   grantedAt?: Date;
+  /** Optional allowed group roles (if principalType = GROUP). Empty/undefined means all roles */
+  groupRoles?: GroupRole[];
 };
 
 export type IAclEntry = AclEntry &

@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { PrincipalType } from 'librechat-data-provider';
 import type { TUser, TPrincipalSearchResult } from 'librechat-data-provider';
 import type { Model, ClientSession } from 'mongoose';
-import type { IGroup, IRole, IUser } from '~/types';
+import type { IGroup, IRole, IUser, GroupRole } from '~/types';
 import { bufferToDataUri } from '../utils';
 
 export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
@@ -92,6 +92,8 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
     const User = mongoose.models.User as Model<IUser>;
     const Group = mongoose.models.Group as Model<IGroup>;
 
+    const userObjectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
+
     const userQuery = User.findById(userId, 'idOnTheSource');
     if (session) {
       userQuery.session(session);
@@ -104,11 +106,26 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
 
     const userIdOnTheSource = user.idOnTheSource || userId.toString();
 
-    const query = Group.find({ memberIds: userIdOnTheSource });
+    const membershipQuery: Record<string, unknown> = {
+      $or: [{ 'members.user': userObjectId }],
+    };
+
+    if (userIdOnTheSource) {
+      (membershipQuery.$or as Record<string, unknown>[]).push({ memberIds: userIdOnTheSource });
+    }
+
+    const query = Group.find(membershipQuery);
     if (session) {
       query.session(session);
     }
-    return await query.lean();
+    const groups = await query.lean();
+    const uniqueGroups = new Map<string, IGroup>();
+    groups.forEach((group) => {
+      if (group?._id) {
+        uniqueGroups.set(group._id.toString(), group);
+      }
+    });
+    return Array.from(uniqueGroups.values());
   }
 
   /**
@@ -278,8 +295,27 @@ export function createUserGroupMethods(mongoose: typeof import('mongoose')) {
 
     const userGroups = await getUserGroups(userId, session);
     if (userGroups && userGroups.length > 0) {
+      const userObjectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
       userGroups.forEach((group) => {
-        principals.push({ principalType: PrincipalType.GROUP, principalId: group._id });
+        let memberRole: GroupRole | undefined;
+
+        if (Array.isArray(group.members) && group.members.length > 0) {
+          const matchingMember = group.members.find((member) => {
+            if (!member?.user) {
+              return false;
+            }
+            const memberId =
+              typeof member.user === 'string' ? member.user : member.user.toString();
+            return memberId === userObjectId.toString();
+          });
+          memberRole = matchingMember?.role as GroupRole | undefined;
+        }
+
+        principals.push({
+          principalType: PrincipalType.GROUP,
+          principalId: group._id,
+          groupRole: memberRole || ('viewer' as GroupRole),
+        });
       });
     }
 

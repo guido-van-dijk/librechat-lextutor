@@ -1,9 +1,57 @@
 import { Types } from 'mongoose';
 import { PrincipalType, PrincipalModel } from 'librechat-data-provider';
 import type { Model, DeleteResult, ClientSession } from 'mongoose';
-import type { IAclEntry } from '~/types';
+import type { IAclEntry, GroupRole } from '~/types';
 
 export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
+  type PrincipalInput = {
+    principalType: string;
+    principalId?: string | Types.ObjectId;
+    groupRole?: GroupRole;
+  };
+
+  const ALL_GROUP_ROLES: GroupRole[] = ['owner', 'editor', 'viewer'];
+
+  const buildPrincipalRoleMap = (principalsList: PrincipalInput[]) => {
+    const map = new Map<string, GroupRole>();
+    principalsList.forEach((principal) => {
+      if (
+        principal.principalType === PrincipalType.GROUP &&
+        principal.principalId != null &&
+        principal.groupRole
+      ) {
+        const key =
+          typeof principal.principalId === 'string'
+            ? principal.principalId
+            : principal.principalId.toString();
+        map.set(key, principal.groupRole);
+      }
+    });
+    return map;
+  };
+
+  const entryMatchesGroupRole = (entry: IAclEntry, principalRoleMap: Map<string, GroupRole>) => {
+    if (
+      entry.principalType !== PrincipalType.GROUP ||
+      !entry.groupRoles ||
+      entry.groupRoles.length === 0
+    ) {
+      return true;
+    }
+
+    const principalId =
+      typeof entry.principalId === 'string'
+        ? entry.principalId
+        : entry.principalId?.toString();
+    if (!principalId) {
+      return false;
+    }
+    const userRole = principalRoleMap.get(principalId);
+    if (!userRole) {
+      return false;
+    }
+    return entry.groupRoles.includes(userRole);
+  };
   /**
    * Find ACL entries for a specific principal (user or group)
    * @param principalType - The type of principal ('user', 'group')
@@ -46,7 +94,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
    * @returns Array of matching ACL entries
    */
   async function findEntriesByPrincipalsAndResource(
-    principalsList: Array<{ principalType: string; principalId?: string | Types.ObjectId }>,
+    principalsList: PrincipalInput[],
     resourceType: string,
     resourceId: string | Types.ObjectId,
   ): Promise<IAclEntry[]> {
@@ -56,11 +104,14 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
       ...(p.principalType !== PrincipalType.PUBLIC && { principalId: p.principalId }),
     }));
 
-    return await AclEntry.find({
+    const entries = await AclEntry.find({
       $or: principalsQuery,
       resourceType,
       resourceId,
     }).lean();
+
+    const principalRoleMap = buildPrincipalRoleMap(principalsList);
+    return entries.filter((entry) => entryMatchesGroupRole(entry, principalRoleMap));
   }
 
   /**
@@ -72,7 +123,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
    * @returns Whether any of the principals has the permission
    */
   async function hasPermission(
-    principalsList: Array<{ principalType: string; principalId?: string | Types.ObjectId }>,
+    principalsList: PrincipalInput[],
     resourceType: string,
     resourceId: string | Types.ObjectId,
     permissionBit: number,
@@ -83,14 +134,16 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
       ...(p.principalType !== PrincipalType.PUBLIC && { principalId: p.principalId }),
     }));
 
-    const entry = await AclEntry.findOne({
+    const principalRoleMap = buildPrincipalRoleMap(principalsList);
+
+    const entries = await AclEntry.find({
       $or: principalsQuery,
       resourceType,
       resourceId,
       permBits: { $bitsAllSet: permissionBit },
     }).lean();
 
-    return !!entry;
+    return entries.some((entry) => entryMatchesGroupRole(entry, principalRoleMap));
   }
 
   /**
@@ -101,7 +154,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
    * @returns {Promise<number>} Effective permission bitmask
    */
   async function getEffectivePermissions(
-    principalsList: Array<{ principalType: string; principalId?: string | Types.ObjectId }>,
+    principalsList: PrincipalInput[],
     resourceType: string,
     resourceId: string | Types.ObjectId,
   ): Promise<number> {
@@ -139,6 +192,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     grantedBy: string | Types.ObjectId,
     session?: ClientSession,
     roleId?: string | Types.ObjectId,
+    groupRoles?: GroupRole[],
   ): Promise<IAclEntry | null> {
     const AclEntry = mongoose.models.AclEntry as Model<IAclEntry>;
     const query: Record<string, unknown> = {
@@ -161,7 +215,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
       }
     }
 
-    const update = {
+    const update: Record<string, Record<string, unknown>> = {
       $set: {
         permBits,
         grantedBy,
@@ -169,6 +223,13 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
         ...(roleId && { roleId }),
       },
     };
+
+    if (principalType === PrincipalType.GROUP) {
+      update.$set.groupRoles =
+        groupRoles && groupRoles.length > 0 ? groupRoles : ALL_GROUP_ROLES;
+    } else {
+      update.$unset = { groupRoles: '' };
+    }
 
     const options = {
       upsert: true,
@@ -276,7 +337,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
    * @returns Array of resource IDs
    */
   async function findAccessibleResources(
-    principalsList: Array<{ principalType: string; principalId?: string | Types.ObjectId }>,
+    principalsList: PrincipalInput[],
     resourceType: string,
     requiredPermBit: number,
   ): Promise<Types.ObjectId[]> {
@@ -290,9 +351,20 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
       $or: principalsQuery,
       resourceType,
       permBits: { $bitsAllSet: requiredPermBit },
-    }).distinct('resourceId');
+    })
+      .select('resourceId principalId principalType groupRoles')
+      .lean();
 
-    return entries;
+    const principalRoleMap = buildPrincipalRoleMap(principalsList);
+    const allowedResourceIds = new Set<string>();
+
+    entries.forEach((entry) => {
+      if (entryMatchesGroupRole(entry, principalRoleMap) && entry.resourceId) {
+        allowedResourceIds.add(entry.resourceId.toString());
+      }
+    });
+
+    return Array.from(allowedResourceIds).map((id) => new Types.ObjectId(id));
   }
 
   return {

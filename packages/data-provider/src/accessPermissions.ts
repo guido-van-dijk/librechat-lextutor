@@ -89,6 +89,9 @@ export const principalSchema = z.object({
   idOnTheSource: z.string().optional(), // Entra ID for users/groups
   accessRoleId: z.nativeEnum(AccessRoleIds).optional(), // Access role ID for permissions
   memberCount: z.number().optional(), // for group type
+  groupRoles: z
+    .array(z.enum(['owner', 'editor', 'viewer']))
+    .optional(), // optional allowed group roles when sharing with a group
 });
 
 /**

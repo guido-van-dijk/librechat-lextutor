@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AccessRoleIds, ResourceType } from 'librechat-data-provider';
+import { AccessRoleIds, ResourceType, PrincipalType } from 'librechat-data-provider';
 import { Share2Icon, Users, Link, CopyCheck, UserX, UserCheck } from 'lucide-react';
 import {
   Label,
@@ -25,6 +25,25 @@ import PeoplePickerAdminSettings from './PeoplePickerAdminSettings';
 import PublicSharingToggle from './PublicSharingToggle';
 import { SelectedPrincipalsList } from './PeoplePicker';
 import { cn } from '~/utils';
+
+type GroupRoleThreshold = 'viewer' | 'editor' | 'owner';
+const DEFAULT_GROUP_ROLES: GroupRoleThreshold[] = ['viewer', 'editor', 'owner'];
+
+const getRolesForThreshold = (threshold: GroupRoleThreshold): GroupRoleThreshold[] => {
+  switch (threshold) {
+    case 'owner':
+      return ['owner'];
+    case 'editor':
+      return ['editor', 'owner'];
+    default:
+      return DEFAULT_GROUP_ROLES;
+  }
+};
+
+const normalizeGroupRoles = (roles?: string[]) =>
+  roles && roles.length > 0 ? (roles as GroupRoleThreshold[]) : DEFAULT_GROUP_ROLES;
+
+const serializeGroupRoles = (roles?: string[]) => normalizeGroupRoles(roles).join('|');
 
 export default function GenericGrantAccessDialog({
   resourceName,
@@ -76,7 +95,16 @@ export default function GenericGrantAccessDialog({
   useEffect(() => {
     if (permissionsData && isModalOpen) {
       const shares = permissionsData.principals || [];
-      setAllShares(shares.map((share) => ({ ...share, isExisting: true })));
+      setAllShares(
+        shares.map((share) => ({
+          ...share,
+          isExisting: true,
+          groupRoles:
+            share.type === PrincipalType.GROUP
+              ? normalizeGroupRoles(share.groupRoles)
+              : share.groupRoles,
+        })),
+      );
       setHasChanges(false);
     }
   }, [permissionsData, isModalOpen]);
@@ -103,6 +131,10 @@ export default function GenericGrantAccessDialog({
     const sharesWithDefaults = sharesToAdd.map((share) => ({
       ...share,
       accessRoleId: defaultPermissionId || config?.defaultViewerRoleId,
+      groupRoles:
+        share.type === PrincipalType.GROUP
+          ? normalizeGroupRoles(share.groupRoles)
+          : share.groupRoles,
       isExisting: false, // Mark as newly added
     }));
 
@@ -121,6 +153,16 @@ export default function GenericGrantAccessDialog({
     setAllShares(
       allShares.map((s) =>
         s.idOnTheSource === idOnTheSource ? { ...s, accessRoleId: newRole as AccessRoleIds } : s,
+      ),
+    );
+    setHasChanges(true);
+  };
+
+  const handleGroupRoleChange = (idOnTheSource: string, threshold: GroupRoleThreshold) => {
+    const roles = getRolesForThreshold(threshold);
+    setAllShares(
+      allShares.map((share) =>
+        share.idOnTheSource === idOnTheSource ? { ...share, groupRoles: roles } : share,
       ),
     );
     setHasChanges(true);
@@ -160,7 +202,13 @@ export default function GenericGrantAccessDialog({
       const updated = allShares.filter((share) => {
         const key = `${share.type}-${share.idOnTheSource}`;
         const original = originalSharesMap.get(key);
-        return !original || original.accessRoleId !== share.accessRoleId;
+        const accessChanged = !original || original.accessRoleId !== share.accessRoleId;
+        const groupRolesChanged =
+          share.type === PrincipalType.GROUP
+            ? !original ||
+              serializeGroupRoles(original.groupRoles) !== serializeGroupRoles(share.groupRoles)
+            : false;
+        return accessChanged || groupRolesChanged;
       });
 
       // Find removed shares
@@ -321,6 +369,7 @@ export default function GenericGrantAccessDialog({
                         onRemoveHandler={handleRemoveShare}
                         resourceType={resourceType}
                         onRoleChange={(id, newRole) => handleRoleChange(id, newRole)}
+                        onGroupRoleChange={handleGroupRoleChange}
                       />
                     </div>
                   );

@@ -55,6 +55,12 @@ const aclEntrySchema = new Schema<IAclEntry>(
       type: Date,
       default: Date.now,
     },
+    groupRoles: {
+      type: [String],
+      enum: ['owner', 'editor', 'viewer'],
+      required: false,
+      default: undefined,
+    },
   },
   { timestamps: true },
 );

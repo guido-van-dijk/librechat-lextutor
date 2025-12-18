@@ -226,6 +226,7 @@ const getResourcePermissions = async (req, res) => {
           principalType: 1,
           principalId: 1,
           accessRoleId: { $arrayElemAt: ['$role.accessRoleId', 0] },
+          groupRoles: 1,
           userInfo: { $arrayElemAt: ['$userInfo', 0] },
           groupInfo: { $arrayElemAt: ['$groupInfo', 0] },
         },
@@ -267,6 +268,7 @@ const getResourcePermissions = async (req, res) => {
           source: result.groupInfo.source || 'local',
           idOnTheSource: result.groupInfo.idOnTheSource || result.groupInfo._id.toString(),
           accessRoleId: result.accessRoleId,
+          groupRoles: Array.isArray(result.groupRoles) ? result.groupRoles : undefined,
         });
       } else if (result.principalType === PrincipalType.ROLE) {
         principals.push({
