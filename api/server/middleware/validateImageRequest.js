@@ -83,10 +83,11 @@ function createValidateImageRequest(secureImageLinks) {
       return res.status(403).send('Access Denied');
     }
 
+    const requestPath = fullPath.split('?')[0];
     const agentAvatarPattern = new RegExp(
       `^${imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[a-f0-9]{24}/agent-[^/]*$`,
     );
-    if (agentAvatarPattern.test(fullPath)) {
+    if (agentAvatarPattern.test(requestPath)) {
       logger.debug('[validateImageRequest] Bypassing auth for public agent avatar');
       return next();
     }
