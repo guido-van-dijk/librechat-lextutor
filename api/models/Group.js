@@ -4,6 +4,39 @@ const { Group, User } = require('~/db/models');
 
 const GROUP_ROLES = ['owner', 'editor', 'viewer'];
 
+const escapeRegExp = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeText = (value) => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+};
+
+const ensureValidName = (name) => {
+  const normalized = normalizeText(name);
+  if (!normalized) {
+    throw new Error('Group name is required');
+  }
+  return normalized;
+};
+
+const assertUniqueGroupName = async (name, excludeGroupId) => {
+  const query = {
+    name: {
+      $regex: new RegExp(`^${escapeRegExp(name)}$`, 'i'),
+    },
+  };
+  if (excludeGroupId) {
+    query._id = { $ne: new mongoose.Types.ObjectId(excludeGroupId) };
+  }
+
+  const existing = await Group.findOne(query).select('_id').lean();
+  if (existing) {
+    throw new Error('Group name already exists');
+  }
+};
+
 const formatMember = (member) => {
   if (!member) {
     return null;
@@ -74,7 +107,8 @@ const listGroups = async ({ user, search }) => {
     query['members.user'] = new mongoose.Types.ObjectId(user.id);
   }
   if (search) {
-    query.name = { $regex: new RegExp(search, 'i') };
+    const regex = new RegExp(search, 'i');
+    query.$or = [{ name: regex }, { description: regex }, { email: regex }];
   }
 
   const groups = await Group.find(query)
@@ -85,15 +119,13 @@ const listGroups = async ({ user, search }) => {
 };
 
 const createGroup = async ({ name, description, email, avatar, organizationId, ownerId }) => {
-  if (!name) {
-    throw new Error('Name is required');
-  }
-
+  const normalizedName = ensureValidName(name);
+  await assertUniqueGroupName(normalizedName);
   const groupData = {
-    name,
-    description,
-    email,
-    avatar,
+    name: normalizedName,
+    description: description != null ? normalizeText(description) : '',
+    email: email != null ? normalizeText(email) : '',
+    avatar: avatar != null ? normalizeText(avatar) : '',
     source: 'local',
     organizationId: organizationId ? new mongoose.Types.ObjectId(organizationId) : undefined,
     members: [],
@@ -110,14 +142,41 @@ const createGroup = async ({ name, description, email, avatar, organizationId, o
 };
 
 const updateGroup = async (groupId, data) => {
-  const update = { ...data };
+  const update = {};
+
+  if (data.name !== undefined) {
+    const normalizedName = ensureValidName(data.name);
+    await assertUniqueGroupName(normalizedName, groupId);
+    update.name = normalizedName;
+  }
+
+  if (data.description !== undefined) {
+    update.description = normalizeText(data.description);
+  }
+
+  if (data.email !== undefined) {
+    update.email = normalizeText(data.email);
+  }
+
+  if (data.avatar !== undefined) {
+    update.avatar = normalizeText(data.avatar);
+  }
+
   if (data.organizationId) {
     update.organizationId = new mongoose.Types.ObjectId(data.organizationId);
   }
 
-  const updated = await Group.findByIdAndUpdate(groupId, update, { new: true })
-    .populate('members.user', 'email name username')
-    .lean();
+  let updated;
+  if (Object.keys(update).length === 0) {
+    updated = await Group.findById(groupId).populate('members.user', 'email name username').lean();
+  } else {
+    updated = await Group.findByIdAndUpdate(groupId, update, { new: true })
+      .populate('members.user', 'email name username')
+      .lean();
+  }
+  if (!updated) {
+    throw new Error('Group not found');
+  }
   return formatGroup(updated);
 };
 
@@ -165,10 +224,18 @@ const updateGroupMember = async (groupId, memberId, role) => {
     throw new Error('Invalid role');
   }
 
-  await Group.updateOne(
-    { _id: groupId, 'members.user': memberId },
+  if (!mongoose.Types.ObjectId.isValid(memberId)) {
+    throw new Error('Invalid member id');
+  }
+  const memberObjectId = new mongoose.Types.ObjectId(memberId);
+
+  const result = await Group.updateOne(
+    { _id: groupId, 'members.user': memberObjectId },
     { $set: { 'members.$.role': role } },
   );
+  if (!result.matchedCount) {
+    throw new Error('Member not found');
+  }
 
   const updated = await Group.findById(groupId)
     .populate('members.user', 'email name username')
@@ -177,11 +244,16 @@ const updateGroupMember = async (groupId, memberId, role) => {
 };
 
 const removeGroupMember = async (groupId, memberId) => {
+  if (!mongoose.Types.ObjectId.isValid(memberId)) {
+    throw new Error('Invalid member id');
+  }
+  const memberObjectId = new mongoose.Types.ObjectId(memberId);
+
   await Group.updateOne(
     { _id: groupId },
     {
-      $pull: { members: { user: memberId } },
-      $pullAll: { memberIds: [memberId.toString()] },
+      $pull: { members: { user: memberObjectId } },
+      $pullAll: { memberIds: [memberObjectId.toString()] },
     },
   );
   const updated = await Group.findById(groupId)
