@@ -57,6 +57,7 @@ export enum QueryKeys {
   resourcePermissions = 'resourcePermissions',
   effectivePermissions = 'effectivePermissions',
   graphToken = 'graphToken',
+  groups = 'groups',
   branding = 'branding',
 }
 
@@ -92,4 +93,7 @@ export enum MutationKeys {
   verifyTwoFactor = 'verifyTwoFactor',
   updateMemoryPreferences = 'updateMemoryPreferences',
   updateBranding = 'updateBranding',
+  createGroup = 'createGroup',
+  updateGroup = 'updateGroup',
+  manageGroupMember = 'manageGroupMember',
 }

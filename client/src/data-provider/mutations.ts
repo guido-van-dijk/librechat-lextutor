@@ -56,6 +56,64 @@ export const useUpdateBrandingMutation = () => {
   );
 };
 
+export const useCreateGroupMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation((payload: t.TCreateGroupRequest) => dataService.createGroup(payload), {
+    mutationKey: [MutationKeys.createGroup],
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.groups] });
+    },
+  });
+};
+
+export const useUpdateGroupMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    ({ groupId, payload }: { groupId: string; payload: t.TUpdateGroupRequest }) =>
+      dataService.updateGroup(groupId, payload),
+    {
+      mutationKey: [MutationKeys.updateGroup],
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.groups] });
+      },
+    },
+  );
+};
+
+export const useManageGroupMemberMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    ({
+      groupId,
+      memberId,
+      payload,
+      action,
+    }: {
+      groupId: string;
+      memberId?: string;
+      payload?: t.TManageGroupMemberRequest;
+      action: 'add' | 'update' | 'remove';
+    }) => {
+      if (action === 'add' && payload) {
+        return dataService.addGroupMember(groupId, payload);
+      }
+      if (action === 'update' && payload && memberId) {
+        return dataService.updateGroupMember(groupId, memberId, { role: payload.role });
+      }
+      if (action === 'remove' && memberId) {
+        return dataService.removeGroupMember(groupId, memberId);
+      }
+      return Promise.reject(new Error('Invalid group member mutation payload'));
+    },
+    {
+      mutationKey: [MutationKeys.manageGroupMember],
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.groups] });
+      },
+    },
+  );
+};
+
 export const useUpdateConversationMutation = (
   id: string,
 ): UseMutationResult<

@@ -218,6 +218,41 @@ export type TBrandingConfig = {
 
 export type TUpdateBrandingRequest = Partial<TBrandingConfig>;
 
+export type TGroupMember = {
+  userId: string;
+  email?: string;
+  name?: string;
+  role: 'owner' | 'editor' | 'viewer';
+};
+
+export type TGroup = {
+  id: string;
+  name: string;
+  description?: string;
+  email?: string;
+  avatar?: string;
+  organizationId?: string;
+  members: TGroupMember[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TCreateGroupRequest = {
+  name: string;
+  description?: string;
+  email?: string;
+  avatar?: string;
+  ownerId?: string;
+};
+
+export type TUpdateGroupRequest = Partial<TCreateGroupRequest>;
+
+export type TManageGroupMemberRequest = {
+  userId?: string;
+  email?: string;
+  role: TGroupMember['role'];
+};
+
 export type TGetConversationsResponse = {
   conversations: TConversation[];
   pageNumber: string;

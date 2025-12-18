@@ -60,6 +60,17 @@ export const useBrandingQuery = (
   );
 };
 
+export const useGroupsQuery = (
+  config?: UseQueryOptions<t.TGroup[]>,
+): QueryObserverResult<t.TGroup[]> => {
+  return useQuery<t.TGroup[]>([QueryKeys.groups], () => dataService.getGroups(), {
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    ...config,
+  });
+};
+
 export const useGetConvoIdQuery = (
   id: string,
   config?: UseQueryOptions<t.TConversation>,

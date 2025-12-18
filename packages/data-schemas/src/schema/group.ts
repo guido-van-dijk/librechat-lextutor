@@ -21,6 +21,26 @@ const groupSchema = new Schema<IGroup>(
       type: String,
       required: false,
     },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: false,
+    },
+    members: [
+      {
+        _id: false,
+        user: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ['owner', 'editor', 'viewer'],
+          default: 'viewer',
+        },
+      },
+    ],
     memberIds: [
       {
         type: String,
@@ -53,5 +73,7 @@ groupSchema.index(
   },
 );
 groupSchema.index({ memberIds: 1 });
+groupSchema.index({ 'members.user': 1 });
+groupSchema.index({ organizationId: 1 });
 
 export default groupSchema;

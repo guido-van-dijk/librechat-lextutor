@@ -173,6 +173,11 @@ export const cancelMCPOAuth = (serverName: string) => {
 export const config = () => `${BASE_URL}/api/config`;
 
 export const prompts = () => `${BASE_URL}/api/prompts`;
+export const groups = () => `${BASE_URL}/api/groups`;
+export const group = (groupId: string) => `${BASE_URL}/api/groups/${groupId}`;
+export const groupMembers = (groupId: string) => `${BASE_URL}/api/groups/${groupId}/members`;
+export const groupMember = (groupId: string, memberId: string) =>
+  `${BASE_URL}/api/groups/${groupId}/members/${memberId}`;
 export const adminBranding = () => `${BASE_URL}/api/admin/branding`;
 
 export const addPromptToGroup = (groupId: string) =>

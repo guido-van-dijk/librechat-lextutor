@@ -187,6 +187,37 @@ export const updateBrandingConfig = (
   return request.put(endpoints.adminBranding(), payload);
 };
 
+export const getGroups = (): Promise<t.TGroup[]> => {
+  return request.get(endpoints.groups());
+};
+
+export const createGroup = (payload: t.TCreateGroupRequest): Promise<t.TGroup> => {
+  return request.post(endpoints.groups(), payload);
+};
+
+export const updateGroup = (groupId: string, payload: t.TUpdateGroupRequest): Promise<t.TGroup> => {
+  return request.patch(endpoints.group(groupId), payload);
+};
+
+export const addGroupMember = (
+  groupId: string,
+  payload: t.TManageGroupMemberRequest,
+): Promise<t.TGroup> => {
+  return request.post(endpoints.groupMembers(groupId), payload);
+};
+
+export const updateGroupMember = (
+  groupId: string,
+  memberId: string,
+  payload: Pick<t.TManageGroupMemberRequest, 'role'>,
+): Promise<t.TGroup> => {
+  return request.patch(endpoints.groupMember(groupId, memberId), payload);
+};
+
+export const removeGroupMember = (groupId: string, memberId: string): Promise<t.TGroup> => {
+  return request.delete(endpoints.groupMember(groupId, memberId));
+};
+
 export const getAIEndpoints = (): Promise<t.TEndpointsConfig> => {
   return request.get(endpoints.aiEndpoints());
 };

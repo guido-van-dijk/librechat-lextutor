@@ -27,9 +27,11 @@ const keys = require('./keys');
 const user = require('./user');
 const mcp = require('./mcp');
 const admin = require('./admin');
+const groups = require('./groups');
 
 module.exports = {
   admin,
+  groups,
   mcp,
   edit,
   auth,
