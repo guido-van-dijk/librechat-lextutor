@@ -9,6 +9,7 @@ import {
   useGetStartupConfig,
   useArchiveConvoMutation,
   useProjectsQuery,
+  useUpdateConversationMutation,
 } from '~/data-provider';
 import { useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
 import { NotificationSeverity } from '~/common';
@@ -53,6 +54,7 @@ function ConvoOptions({
 
   const archiveConvoMutation = useArchiveConvoMutation();
   const { data: projects = [] } = useProjectsQuery();
+  const updateConvoMutation = useUpdateConversationMutation(conversationId ?? '');
 
   const duplicateConversation = useDuplicateConversationMutation({
     onSuccess: (data) => {
