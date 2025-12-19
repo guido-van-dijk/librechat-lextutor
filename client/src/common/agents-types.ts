@@ -41,6 +41,7 @@ export type AgentForm = {
   recursion_limit?: number;
   support_contact?: SupportContact;
   category: string;
+  projectIds?: string[];
   groupIds?: string[];
   // Avatar management fields
   avatar_file?: File | null;

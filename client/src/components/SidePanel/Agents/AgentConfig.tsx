@@ -30,6 +30,7 @@ import AgentTool from './AgentTool';
 import CodeForm from './Code/Form';
 import MCPTools from './MCPTools';
 import GroupSelector from './GroupSelector';
+import ProjectSelector from './ProjectSelector';
 
 const labelClass = 'mb-2 text-token-text-primary block font-medium';
 const inputClass = cn(
@@ -477,6 +478,7 @@ export default function AgentConfig() {
             </div>
           </div>
         </div>
+        <ProjectSelector />
         <GroupSelector />
       </div>
       <ToolSelectDialog

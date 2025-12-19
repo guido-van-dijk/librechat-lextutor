@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import React, { useMemo, useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import { Button, useToastContext } from '@librechat/client';
 import { useWatch, useForm, FormProvider, type FieldNamesMarkedBoolean } from 'react-hook-form';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
@@ -22,7 +22,12 @@ import {
 } from '~/data-provider';
 import { createProviderOption, getDefaultAgentFormValues } from '~/utils';
 import { useResourcePermissions } from '~/hooks/useResourcePermissions';
-import { useSelectAgent, useLocalize, useAuthContext } from '~/hooks';
+import {
+  useSelectAgent,
+  useLocalize,
+  useAuthContext,
+  useConversationProjectFilter,
+} from '~/hooks';
 import { useAgentPanelContext } from '~/Providers/AgentPanelContext';
 import AgentPanelSkeleton from './AgentPanelSkeleton';
 import AdvancedPanel from './Advanced/AdvancedPanel';
@@ -71,10 +76,11 @@ export function composeAgentUpdatePayload(data: AgentForm, agent_id?: string | n
     end_after_tools,
     hide_sequential_outputs,
     recursion_limit,
-  category,
-  support_contact,
-  groupIds,
-  avatar_action: avatarActionState,
+    category,
+    support_contact,
+    projectIds,
+    groupIds,
+    avatar_action: avatarActionState,
   } = data;
 
   const shouldResetAvatar =
@@ -99,6 +105,7 @@ export function composeAgentUpdatePayload(data: AgentForm, agent_id?: string | n
       recursion_limit,
       category,
       support_contact,
+      projectIds: (projectIds ?? []).filter(Boolean),
       groupIds,
       ...(shouldResetAvatar ? { avatar: null } : {}),
     },
@@ -250,6 +257,7 @@ export default function AgentPanel() {
     setValue,
     formState: { dirtyFields },
   } = methods;
+  const [projectFilter] = useConversationProjectFilter();
   const [agentScope, setAgentScope] = useState<AgentScopeState>({ scope: 'all' });
   const [isAvatarUploadInFlight, setIsAvatarUploadInFlight] = useState(false);
   const uploadAvatarMutation = useUploadAgentAvatarMutation({
@@ -296,6 +304,24 @@ export default function AgentPanel() {
     [getValues, uploadAvatarMutation],
   );
   const agent_id = useWatch({ control, name: 'id' });
+  const activeProjectId = useMemo(() => {
+    if (projectFilter === 'all' || projectFilter === 'none') {
+      return null;
+    }
+    return projectFilter;
+  }, [projectFilter]);
+  useEffect(() => {
+    if (agent_id) {
+      return;
+    }
+    if (!activeProjectId) {
+      return;
+    }
+    const currentProjectIds = getValues('projectIds') ?? [];
+    if (currentProjectIds.length === 0) {
+      setValue('projectIds', [activeProjectId], { shouldDirty: false });
+    }
+  }, [activeProjectId, agent_id, getValues, setValue]);
   const previousVersionRef = useRef<number | undefined>();
 
   const allowedProviders = useMemo(

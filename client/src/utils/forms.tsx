@@ -56,6 +56,7 @@ export const getDefaultAgentFormValues = () => ({
   avatar_preview: '',
   avatar_action: null,
   groupIds: [],
+  projectIds: [],
 });
 
 export const processAgentOption = ({

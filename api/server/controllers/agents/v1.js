@@ -29,6 +29,7 @@ const {
   revertAgentVersion,
   createAgent,
   updateAgent,
+  updateAgentProjects,
   deleteAgent,
   getAgent,
 } = require('~/models/Agent');
@@ -265,11 +266,16 @@ const refreshListAvatars = async (agents, userId) => {
 const createAgentHandler = async (req, res) => {
   try {
     const validatedData = agentCreateSchema.parse(req.body);
-    const { tools = [], groupIds: requestedGroupIds = [], ...agentData } =
-      removeNullishValues(validatedData);
+    const {
+      tools = [],
+      groupIds: requestedGroupIds = [],
+      projectIds: requestedProjectIds = [],
+      ...agentData
+    } = removeNullishValues(validatedData);
 
     const { id: userId } = req.user;
     const allowedGroupIds = await filterAllowedGroupIds(userId, requestedGroupIds);
+    const allowedProjectIds = normalizeObjectIdStrings(requestedProjectIds);
 
     agentData.id = `agent_${nanoid()}`;
     agentData.author = userId;
@@ -308,17 +314,29 @@ const createAgentHandler = async (req, res) => {
       );
     }
 
+    let finalAgent = agent;
+    if (allowedProjectIds.length > 0) {
+      const projectUpdated = await updateAgentProjects({
+        user: req.user,
+        agentId: agent.id,
+        projectIds: allowedProjectIds,
+      });
+      if (projectUpdated) {
+        finalAgent = projectUpdated;
+      }
+    }
+
     if (allowedGroupIds.length > 0) {
-      agent.groupIds = await syncAgentGroupPermissions({
-        agentId: agent._id,
+      finalAgent.groupIds = await syncAgentGroupPermissions({
+        agentId: finalAgent._id,
         groupIds: allowedGroupIds,
         grantedBy: userId,
       });
     } else {
-      agent.groupIds = [];
+      finalAgent.groupIds = [];
     }
 
-    res.status(201).json(agent);
+    res.status(201).json(finalAgent);
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.error('[/Agents] Validation error', error.errors);
@@ -429,11 +447,20 @@ const updateAgentHandler = async (req, res) => {
     const id = req.params.id;
     const validatedData = agentUpdateSchema.parse(req.body);
     // Preserve explicit null for avatar to allow resetting the avatar
-    const { avatar: avatarField, _id, groupIds: requestedGroupIds, ...rest } = validatedData;
+    const {
+      avatar: avatarField,
+      _id,
+      groupIds: requestedGroupIds,
+      projectIds: requestedProjectIds,
+      ...rest
+    } = validatedData;
     const updateData = removeNullishValues(rest);
     if (avatarField === null) {
       updateData.avatar = avatarField;
     }
+
+    const normalizedProjectIds =
+      requestedProjectIds !== undefined ? normalizeObjectIdStrings(requestedProjectIds) : null;
 
     // Convert OCR to context in incoming updateData
     convertOcrToContextInPlace(updateData);
@@ -443,6 +470,12 @@ const updateAgentHandler = async (req, res) => {
     if (!existingAgent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+
+    const existingProjectIds = Array.isArray(existingAgent.projectIds)
+      ? existingAgent.projectIds
+          .map((projId) => (typeof projId === 'string' ? projId : projId?.toString?.() ?? ''))
+          .filter((value) => value)
+      : [];
 
     // Convert legacy OCR tool resource to context format in existing agent
     const ocrConversion = mergeAgentOcrConversion(existingAgent, updateData);
@@ -459,6 +492,25 @@ const updateAgentHandler = async (req, res) => {
             updatingUserId: req.user.id,
           })
         : existingAgent;
+
+    if (normalizedProjectIds !== null) {
+      const targetAgentId = updatedAgent.id ?? updatedAgent._id?.toString();
+      if (targetAgentId) {
+        const toAdd = normalizedProjectIds.filter((id) => !existingProjectIds.includes(id));
+        const toRemove = existingProjectIds.filter((id) => !normalizedProjectIds.includes(id));
+        if (toAdd.length || toRemove.length) {
+          const projectUpdated = await updateAgentProjects({
+            user: req.user,
+            agentId: targetAgentId,
+            projectIds: toAdd,
+            removeProjectIds: toRemove,
+          });
+          if (projectUpdated) {
+            updatedAgent = projectUpdated;
+          }
+        }
+      }
+    }
 
     if (requestedGroupIds !== undefined) {
       const resolvedGroupIds = await filterAllowedGroupIds(req.user.id, requestedGroupIds ?? []);

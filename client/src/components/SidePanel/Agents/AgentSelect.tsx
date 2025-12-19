@@ -108,6 +108,10 @@ export default function AgentSelect({
         avatar_action: null,
       };
 
+      if (Array.isArray(fullAgent.projectIds) && fullAgent.projectIds.length > 0) {
+        formValues.projectIds = fullAgent.projectIds.map((id) => id?.toString() ?? '');
+      }
+
       Object.entries(fullAgent).forEach(([name, value]) => {
         if (name === 'model_parameters') {
           formValues[name] = value;

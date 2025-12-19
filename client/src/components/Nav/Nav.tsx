@@ -11,6 +11,7 @@ import {
   useAuthContext,
   useLocalStorage,
   useNavScrolling,
+  useConversationProjectFilter,
 } from '~/hooks';
 import { useConversationsInfiniteQuery, useProjectsQuery } from '~/data-provider';
 import { Conversations } from '~/components/Conversations';
@@ -73,10 +74,7 @@ const Nav = memo(
     const { data: projects = [], isLoading: projectsLoading } = useProjectsQuery({
       enabled: isAuthenticated,
     });
-    const [projectFilter, setProjectFilter] = useLocalStorage<string>(
-      'conversationProjectFilter',
-      'all',
-    );
+    const [projectFilter, setProjectFilter] = useConversationProjectFilter();
     const projectIdParam = useMemo(() => {
       if (projectFilter === 'all') {
         return undefined;
