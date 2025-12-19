@@ -73,13 +73,28 @@ function createValidateImageRequest(secureImageLinks) {
     const originalUrl = req.originalUrl || '';
     const requestPath = originalUrl.split('?')[0];
     const escapedImagesPath = imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const agentAvatarPattern = new RegExp(
-      `^${escapedImagesPath}/[a-f0-9]{24}/agent-[^/]+\\.(png|jpg|jpeg|webp|gif)$`,
-      'i',
-    );
+    const pathSegments = requestPath.split('/');
+    const fileName = pathSegments[pathSegments.length - 1] || '';
+    const agentAvatarPattern = new RegExp(`^agent-[^/]+?\\.(png|jpg|jpeg|webp|gif)$`, 'i');
+    const genericAvatarPattern = new RegExp(`^avatar-[^/]+?\\.(png|jpg|jpeg|webp|gif)$`, 'i');
 
-    if (agentAvatarPattern.test(requestPath)) {
+    if (
+      pathSegments.length >= 3 &&
+      agentAvatarPattern.test(fileName) &&
+      /^[a-f0-9]{24}$/i.test(pathSegments[pathSegments.length - 2] || '')
+    ) {
       logger.debug('[validateImageRequest] Bypassing auth for public agent avatar', {
+        requestPath,
+      });
+      return next();
+    }
+
+    if (
+      pathSegments.length >= 3 &&
+      genericAvatarPattern.test(fileName) &&
+      /^[a-f0-9]{24}$/i.test(pathSegments[pathSegments.length - 2] || '')
+    ) {
+      logger.debug('[validateImageRequest] Bypassing auth for public avatar asset', {
         requestPath,
       });
       return next();
