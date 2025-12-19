@@ -210,6 +210,7 @@ export type Agent = {
   id: string;
   name: string | null;
   author?: string | null;
+  groupIds?: string[];
   /** The original custom endpoint name, lowercased */
   endpoint?: string | null;
   authorName?: string | null;
@@ -254,6 +255,7 @@ export type AgentCreateParams = {
   provider: AgentProvider;
   model: string | null;
   model_parameters: AgentModelParameters;
+  groupIds?: string[];
 } & Pick<
   Agent,
   | 'agent_ids'
@@ -280,6 +282,7 @@ export type AgentUpdateParams = {
   projectIds?: string[];
   removeProjectIds?: string[];
   isCollaborative?: boolean;
+  groupIds?: string[];
 } & Pick<
   Agent,
   | 'agent_ids'
@@ -299,6 +302,8 @@ export type AgentListParams = {
   search?: string;
   cursor?: string;
   promoted?: 0 | 1;
+  scope?: 'all' | 'personal' | 'public' | 'group';
+  groupId?: string;
 };
 
 export type AgentListResponse = {

@@ -29,6 +29,7 @@ import Artifacts from './Artifacts';
 import AgentTool from './AgentTool';
 import CodeForm from './Code/Form';
 import MCPTools from './MCPTools';
+import GroupSelector from './GroupSelector';
 
 const labelClass = 'mb-2 text-token-text-primary block font-medium';
 const inputClass = cn(
@@ -476,6 +477,7 @@ export default function AgentConfig() {
             </div>
           </div>
         </div>
+        <GroupSelector />
       </div>
       <ToolSelectDialog
         isOpen={showToolDialog}

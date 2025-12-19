@@ -1,6 +1,6 @@
 import { EarthIcon } from 'lucide-react';
 import { ControlCombobox } from '@librechat/client';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFormContext, Controller } from 'react-hook-form';
 import { AgentCapabilities, defaultAgentFormValues } from 'librechat-data-provider';
 import type { UseMutationResult, QueryObserverResult } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import type { TAgentCapabilities, AgentForm } from '~/common';
 import { cn, createProviderOption, processAgentOption, getDefaultAgentFormValues } from '~/utils';
 import { useLocalize, useAgentDefaultPermissionLevel } from '~/hooks';
 import { useListAgentsQuery } from '~/data-provider';
+import type { AgentScopeState } from './ScopeTabs';
 
 const keys = new Set(Object.keys(defaultAgentFormValues));
 
@@ -17,19 +18,40 @@ export default function AgentSelect({
   selectedAgentId = null,
   setCurrentAgentId,
   createMutation,
+  agentScope,
 }: {
   selectedAgentId: string | null;
   agentQuery: QueryObserverResult<Agent>;
   setCurrentAgentId: React.Dispatch<React.SetStateAction<string | undefined>>;
   createMutation: UseMutationResult<Agent, Error, AgentCreateParams>;
+  agentScope: AgentScopeState;
 }) {
   const localize = useLocalize();
   const lastSelectedAgent = useRef<string | null>(null);
   const { control, reset } = useFormContext();
   const permissionLevel = useAgentDefaultPermissionLevel();
 
+  const agentQueryParams = useMemo(() => {
+    if (agentScope.scope === 'group') {
+      return {
+        requiredPermission: permissionLevel,
+        scope: 'group' as const,
+        groupId: agentScope.groupId,
+      };
+    }
+
+    if (agentScope.scope === 'all') {
+      return { requiredPermission: permissionLevel };
+    }
+
+    return {
+      requiredPermission: permissionLevel,
+      scope: agentScope.scope,
+    };
+  }, [permissionLevel, agentScope]);
+
   const { data: agents = null } = useListAgentsQuery(
-    { requiredPermission: permissionLevel },
+    agentQueryParams,
     {
       select: (res) =>
         res.data.map((agent) =>

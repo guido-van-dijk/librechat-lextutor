@@ -31,6 +31,7 @@ import AgentConfig from './AgentConfig';
 import AgentSelect from './AgentSelect';
 import AgentFooter from './AgentFooter';
 import ModelPanel from './ModelPanel';
+import AgentScopeTabs, { AgentScopeState } from './ScopeTabs';
 
 /* Helpers */
 function getUpdateToastMessage(
@@ -70,9 +71,10 @@ export function composeAgentUpdatePayload(data: AgentForm, agent_id?: string | n
     end_after_tools,
     hide_sequential_outputs,
     recursion_limit,
-    category,
-    support_contact,
-    avatar_action: avatarActionState,
+  category,
+  support_contact,
+  groupIds,
+  avatar_action: avatarActionState,
   } = data;
 
   const shouldResetAvatar =
@@ -97,6 +99,7 @@ export function composeAgentUpdatePayload(data: AgentForm, agent_id?: string | n
       recursion_limit,
       category,
       support_contact,
+      groupIds,
       ...(shouldResetAvatar ? { avatar: null } : {}),
     },
     provider,
@@ -247,6 +250,7 @@ export default function AgentPanel() {
     setValue,
     formState: { dirtyFields },
   } = methods;
+  const [agentScope, setAgentScope] = useState<AgentScopeState>({ scope: 'all' });
   const [isAvatarUploadInFlight, setIsAvatarUploadInFlight] = useState(false);
   const uploadAvatarMutation = useUploadAgentAvatarMutation({
     onSuccess: (updatedAgent) => {
@@ -482,11 +486,13 @@ export default function AgentPanel() {
         aria-label="Agent configuration form"
       >
         <div className="mx-1 mt-2 flex w-full flex-wrap gap-2">
+          <AgentScopeTabs value={agentScope} onChange={setAgentScope} />
           <div className="w-full">
             <AgentSelect
               createMutation={create}
               agentQuery={agentQuery}
               setCurrentAgentId={setCurrentAgentId}
+              agentScope={agentScope}
               // The following is required to force re-render the component when the form's agent ID changes
               // Also maintains ComboBox Focus for Accessibility
               selectedAgentId={agentQuery.isInitialLoading ? null : (current_agent_id ?? null)}

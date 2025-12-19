@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const fs = require('fs').promises;
+const mongoose = require('mongoose');
 const { nanoid } = require('nanoid');
 const { logger } = require('@librechat/data-schemas');
 const {
@@ -37,6 +38,8 @@ const {
   hasPublicPermission,
   grantPermission,
 } = require('~/server/services/PermissionService');
+const { AclEntry } = require('~/db/models');
+const { getUserGroups } = require('~/models');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
 const { getFileStrategy } = require('~/server/utils/getFileStrategy');
@@ -55,6 +58,8 @@ const {
 } = require('~/models');
 const { getLogStores } = require('~/cache');
 
+const DEFAULT_GROUP_ROLES = ['owner', 'editor', 'viewer'];
+
 const systemTools = {
   [Tools.execute_code]: true,
   [Tools.file_search]: true,
@@ -63,6 +68,123 @@ const systemTools = {
 
 const MAX_SEARCH_LEN = 100;
 const escapeRegex = (str = '') => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeObjectIdStrings = (ids = []) => {
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+
+  const seen = new Set();
+  return ids.reduce((acc, rawValue) => {
+    if (typeof rawValue !== 'string') {
+      return acc;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(rawValue)) {
+      return acc;
+    }
+
+    const normalized = new mongoose.Types.ObjectId(rawValue).toString();
+    if (seen.has(normalized)) {
+      return acc;
+    }
+    seen.add(normalized);
+    acc.push(normalized);
+    return acc;
+  }, []);
+};
+
+const filterAllowedGroupIds = async (userId, requestedIds = []) => {
+  const normalized = normalizeObjectIdStrings(requestedIds);
+  if (normalized.length === 0) {
+    return [];
+  }
+
+  const groups = await getUserGroups(userId);
+  const allowedSet = new Set((groups || []).map((group) => group._id.toString()));
+  return normalized.filter((groupId) => allowedSet.has(groupId));
+};
+
+const attachAgentGroupIds = async (agent) => {
+  if (!agent?._id) {
+    return agent;
+  }
+
+  const entries = await AclEntry.find({
+    resourceType: ResourceType.AGENT,
+    resourceId: agent._id,
+    principalType: PrincipalType.GROUP,
+  })
+    .select('principalId')
+    .lean();
+
+  agent.groupIds = entries.map((entry) => entry.principalId.toString());
+  return agent;
+};
+
+const syncAgentGroupPermissions = async ({ agentId, groupIds = [], grantedBy }) => {
+  if (!agentId) {
+    return [];
+  }
+
+  const resourceId =
+    typeof agentId === 'string' && mongoose.Types.ObjectId.isValid(agentId)
+      ? new mongoose.Types.ObjectId(agentId)
+      : agentId;
+
+  const desiredSet = new Set(groupIds);
+
+  const existingEntries = await AclEntry.find({
+    resourceType: ResourceType.AGENT,
+    resourceId,
+    principalType: PrincipalType.GROUP,
+  })
+    .select('principalId')
+    .lean();
+
+  const existingSet = new Set(existingEntries.map((entry) => entry.principalId.toString()));
+  const toAdd = [...desiredSet].filter((id) => !existingSet.has(id));
+  const toRemove = [...existingSet].filter((id) => !desiredSet.has(id));
+
+  for (const groupId of toAdd) {
+    await grantPermission({
+      principalType: PrincipalType.GROUP,
+      principalId: groupId,
+      resourceType: ResourceType.AGENT,
+      resourceId,
+      accessRoleId: AccessRoleIds.AGENT_VIEWER,
+      grantedBy,
+      groupRoles: DEFAULT_GROUP_ROLES,
+    });
+  }
+
+  if (toRemove.length) {
+    await AclEntry.deleteMany({
+      resourceType: ResourceType.AGENT,
+      resourceId,
+      principalType: PrincipalType.GROUP,
+      principalId: { $in: toRemove.map((id) => new mongoose.Types.ObjectId(id)) },
+    });
+  }
+
+  return [...desiredSet];
+};
+
+const getGroupSharedAgentIds = async (groupId) => {
+  if (!mongoose.Types.ObjectId.isValid(groupId)) {
+    return [];
+  }
+
+  const ids = await AclEntry.find({
+    resourceType: ResourceType.AGENT,
+    principalType: PrincipalType.GROUP,
+    principalId: new mongoose.Types.ObjectId(groupId),
+  })
+    .select('resourceId')
+    .lean();
+
+  return ids.map((entry) => entry.resourceId?.toString()).filter(Boolean);
+};
 
 const categoryValueRegex = /^[a-z0-9-_]+$/i;
 const categoryCreateSchema = z.object({
@@ -143,9 +265,11 @@ const refreshListAvatars = async (agents, userId) => {
 const createAgentHandler = async (req, res) => {
   try {
     const validatedData = agentCreateSchema.parse(req.body);
-    const { tools = [], ...agentData } = removeNullishValues(validatedData);
+    const { tools = [], groupIds: requestedGroupIds = [], ...agentData } =
+      removeNullishValues(validatedData);
 
     const { id: userId } = req.user;
+    const allowedGroupIds = await filterAllowedGroupIds(userId, requestedGroupIds);
 
     agentData.id = `agent_${nanoid()}`;
     agentData.author = userId;
@@ -184,6 +308,16 @@ const createAgentHandler = async (req, res) => {
       );
     }
 
+    if (allowedGroupIds.length > 0) {
+      agent.groupIds = await syncAgentGroupPermissions({
+        agentId: agent._id,
+        groupIds: allowedGroupIds,
+        grantedBy: userId,
+      });
+    } else {
+      agent.groupIds = [];
+    }
+
     res.status(201).json(agent);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -218,6 +352,8 @@ const getAgentHandler = async (req, res, expandProperties = false) => {
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+
+    await attachAgentGroupIds(agent);
 
     agent.version = agent.versions ? agent.versions.length : 0;
 
@@ -293,7 +429,7 @@ const updateAgentHandler = async (req, res) => {
     const id = req.params.id;
     const validatedData = agentUpdateSchema.parse(req.body);
     // Preserve explicit null for avatar to allow resetting the avatar
-    const { avatar: avatarField, _id, ...rest } = validatedData;
+    const { avatar: avatarField, _id, groupIds: requestedGroupIds, ...rest } = validatedData;
     const updateData = removeNullishValues(rest);
     if (avatarField === null) {
       updateData.avatar = avatarField;
@@ -323,6 +459,17 @@ const updateAgentHandler = async (req, res) => {
             updatingUserId: req.user.id,
           })
         : existingAgent;
+
+    if (requestedGroupIds !== undefined) {
+      const resolvedGroupIds = await filterAllowedGroupIds(req.user.id, requestedGroupIds ?? []);
+      updatedAgent.groupIds = await syncAgentGroupPermissions({
+        agentId: updatedAgent._id,
+        groupIds: resolvedGroupIds,
+        grantedBy: req.user.id,
+      });
+    } else {
+      await attachAgentGroupIds(updatedAgent);
+    }
 
     // Add version count to the response
     updatedAgent.version = updatedAgent.versions ? updatedAgent.versions.length : 0;
@@ -460,6 +607,7 @@ const duplicateAgentHandler = async (req, res) => {
     const agentActions = await Promise.all(promises);
     newAgentData.actions = agentActions;
     const newAgent = await createAgent(newAgentData);
+    newAgent.groupIds = [];
 
     // Automatically grant owner permissions to the duplicator
     try {
@@ -527,6 +675,10 @@ const getListAgentsHandler = async (req, res) => {
   try {
     const userId = req.user.id;
     const { category, search, limit, cursor, promoted } = req.query;
+    const rawScope = typeof req.query.scope === 'string' ? req.query.scope : undefined;
+    const groupIdParam = typeof req.query.groupId === 'string' ? req.query.groupId : undefined;
+    const normalizedScope =
+      rawScope === 'personal' || rawScope === 'public' || rawScope === 'group' ? rawScope : 'all';
     let requiredPermission = req.query.requiredPermission;
     if (typeof requiredPermission === 'string') {
       requiredPermission = parseInt(requiredPermission, 10);
@@ -558,6 +710,10 @@ const getListAgentsHandler = async (req, res) => {
       filter.$or = [{ name: regex }, { description: regex }];
     }
 
+    if (normalizedScope === 'personal') {
+      filter.author = new mongoose.Types.ObjectId(userId);
+    }
+
     // Get agent IDs the user has VIEW access to via ACL
     const accessibleIds = await findAccessibleResources({
       userId,
@@ -572,9 +728,31 @@ const getListAgentsHandler = async (req, res) => {
       requiredPermissions: PermissionBits.VIEW,
     });
 
+    const publicSet = new Set(publiclyAccessibleIds.map((oid) => oid.toString()));
+
+    let scopedAccessibleIds = accessibleIds;
+    if (normalizedScope === 'public') {
+      scopedAccessibleIds = accessibleIds.filter((oid) => publicSet.has(oid.toString()));
+    } else if (normalizedScope === 'group') {
+      const allowedGroupIds = groupIdParam
+        ? await filterAllowedGroupIds(userId, [groupIdParam])
+        : [];
+      if (!allowedGroupIds.length) {
+        scopedAccessibleIds = [];
+      } else {
+        const sharedAgentIds = await getGroupSharedAgentIds(allowedGroupIds[0]);
+        if (!sharedAgentIds.length) {
+          scopedAccessibleIds = [];
+        } else {
+          const sharedSet = new Set(sharedAgentIds);
+          scopedAccessibleIds = accessibleIds.filter((oid) => sharedSet.has(oid.toString()));
+        }
+      }
+    }
+
     // Use the new ACL-aware function
     const data = await getListAgentsByAccess({
-      accessibleIds,
+      accessibleIds: scopedAccessibleIds,
       otherParams: filter,
       limit,
       after: cursor,
@@ -584,8 +762,6 @@ const getListAgentsHandler = async (req, res) => {
     if (!agents.length) {
       return res.json(data);
     }
-
-    const publicSet = new Set(publiclyAccessibleIds.map((oid) => oid.toString()));
 
     data.data = agents.map((agent) => {
       try {
