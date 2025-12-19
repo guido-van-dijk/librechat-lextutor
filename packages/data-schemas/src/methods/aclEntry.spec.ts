@@ -288,6 +288,49 @@ describe('AclEntry Model Tests', () => {
     });
   });
 
+  describe('Visibility filtering', () => {
+    test('should bypass group role filtering when requested', async () => {
+      const restrictedGroupId = new mongoose.Types.ObjectId();
+      const restrictedAgentId = new mongoose.Types.ObjectId();
+
+      await methods.grantPermission(
+        PrincipalType.GROUP,
+        restrictedGroupId,
+        ResourceType.AGENT,
+        restrictedAgentId,
+        PermissionBits.VIEW,
+        grantedById,
+        undefined,
+        undefined,
+        ['owner'],
+      );
+
+      const principalsList = [
+        {
+          principalType: PrincipalType.GROUP,
+          principalId: restrictedGroupId,
+          groupRole: 'viewer' as t.GroupRole,
+        },
+      ];
+
+      const filtered = await methods.findAccessibleResources(
+        principalsList,
+        ResourceType.AGENT,
+        PermissionBits.VIEW,
+      );
+      expect(filtered).toHaveLength(0);
+
+      const visible = await methods.findAccessibleResources(
+        principalsList,
+        ResourceType.AGENT,
+        PermissionBits.VIEW,
+        { skipGroupRoleCheck: true },
+      );
+      expect(visible).toHaveLength(1);
+      expect(visible[0].toString()).toBe(restrictedAgentId.toString());
+    });
+  });
+
   describe('Permission Modification', () => {
     test('should revoke permission', async () => {
       /** Grant permission first */

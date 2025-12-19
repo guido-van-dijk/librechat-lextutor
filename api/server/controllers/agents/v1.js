@@ -564,6 +564,7 @@ const getListAgentsHandler = async (req, res) => {
       role: req.user.role,
       resourceType: ResourceType.AGENT,
       requiredPermissions: requiredPermission,
+      visibilityOnly: true,
     });
 
     const publiclyAccessibleIds = await findPubliclyAccessibleResources({

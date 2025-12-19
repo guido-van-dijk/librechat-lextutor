@@ -197,7 +197,13 @@ const getEffectivePermissions = async ({ userId, role, resourceType, resourceId 
  * @param {number} params.requiredPermissions - The minimum permission bits required (e.g., 1 for VIEW, 3 for VIEW+EDIT)
  * @returns {Promise<Array>} Array of resource IDs
  */
-const findAccessibleResources = async ({ userId, role, resourceType, requiredPermissions }) => {
+const findAccessibleResources = async ({
+  userId,
+  role,
+  resourceType,
+  requiredPermissions,
+  visibilityOnly = false,
+}) => {
   try {
     if (typeof requiredPermissions !== 'number' || requiredPermissions < 1) {
       throw new Error('requiredPermissions must be a positive number');
@@ -211,7 +217,9 @@ const findAccessibleResources = async ({ userId, role, resourceType, requiredPer
     if (principalsList.length === 0) {
       return [];
     }
-    return await findAccessibleResourcesACL(principalsList, resourceType, requiredPermissions);
+    return await findAccessibleResourcesACL(principalsList, resourceType, requiredPermissions, {
+      skipGroupRoleCheck: visibilityOnly,
+    });
   } catch (error) {
     logger.error(`[PermissionService.findAccessibleResources] Error: ${error.message}`);
     // Re-throw validation errors

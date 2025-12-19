@@ -30,7 +30,19 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     return map;
   };
 
-  const entryMatchesGroupRole = (entry: IAclEntry, principalRoleMap: Map<string, GroupRole>) => {
+  type GroupRoleOptions = {
+    skipGroupRoleCheck?: boolean;
+  };
+
+  const entryMatchesGroupRole = (
+    entry: IAclEntry,
+    principalRoleMap: Map<string, GroupRole>,
+    options: GroupRoleOptions = {},
+  ) => {
+    if (options.skipGroupRoleCheck && entry.principalType === PrincipalType.GROUP) {
+      return true;
+    }
+
     if (
       entry.principalType !== PrincipalType.GROUP ||
       !entry.groupRoles ||
@@ -97,6 +109,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     principalsList: PrincipalInput[],
     resourceType: string,
     resourceId: string | Types.ObjectId,
+    options: GroupRoleOptions = {},
   ): Promise<IAclEntry[]> {
     const AclEntry = mongoose.models.AclEntry as Model<IAclEntry>;
     const principalsQuery = principalsList.map((p) => ({
@@ -111,7 +124,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     }).lean();
 
     const principalRoleMap = buildPrincipalRoleMap(principalsList);
-    return entries.filter((entry) => entryMatchesGroupRole(entry, principalRoleMap));
+    return entries.filter((entry) => entryMatchesGroupRole(entry, principalRoleMap, options));
   }
 
   /**
@@ -127,6 +140,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     resourceType: string,
     resourceId: string | Types.ObjectId,
     permissionBit: number,
+    options: GroupRoleOptions = {},
   ): Promise<boolean> {
     const AclEntry = mongoose.models.AclEntry as Model<IAclEntry>;
     const principalsQuery = principalsList.map((p) => ({
@@ -143,7 +157,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
       permBits: { $bitsAllSet: permissionBit },
     }).lean();
 
-    return entries.some((entry) => entryMatchesGroupRole(entry, principalRoleMap));
+    return entries.some((entry) => entryMatchesGroupRole(entry, principalRoleMap, options));
   }
 
   /**
@@ -340,6 +354,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     principalsList: PrincipalInput[],
     resourceType: string,
     requiredPermBit: number,
+    options: GroupRoleOptions = {},
   ): Promise<Types.ObjectId[]> {
     const AclEntry = mongoose.models.AclEntry as Model<IAclEntry>;
     const principalsQuery = principalsList.map((p) => ({
@@ -359,7 +374,7 @@ export function createAclEntryMethods(mongoose: typeof import('mongoose')) {
     const allowedResourceIds = new Set<string>();
 
     entries.forEach((entry) => {
-      if (entryMatchesGroupRole(entry, principalRoleMap) && entry.resourceId) {
+      if (entryMatchesGroupRole(entry, principalRoleMap, options) && entry.resourceId) {
         allowedResourceIds.add(entry.resourceId.toString());
       }
     });
