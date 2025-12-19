@@ -1,5 +1,6 @@
 const multer = require('multer');
 const express = require('express');
+const mongoose = require('mongoose');
 const { sleep } = require('@librechat/agents');
 const { isEnabled } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
@@ -32,6 +33,15 @@ router.get('/', async (req, res) => {
   const isArchived = isEnabled(req.query.isArchived);
   const search = req.query.search ? decodeURIComponent(req.query.search) : undefined;
   const order = req.query.order || 'desc';
+  const rawProjectId = req.query.projectId;
+  let projectIdFilter;
+  if (typeof rawProjectId === 'string') {
+    if (rawProjectId === 'none') {
+      projectIdFilter = 'none';
+    } else if (mongoose.Types.ObjectId.isValid(rawProjectId)) {
+      projectIdFilter = rawProjectId;
+    }
+  }
 
   let tags;
   if (req.query.tags) {
@@ -46,6 +56,7 @@ router.get('/', async (req, res) => {
       tags,
       search,
       order,
+      projectId: projectIdFilter,
     });
     res.status(200).json(result);
   } catch (error) {

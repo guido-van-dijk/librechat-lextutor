@@ -237,6 +237,26 @@ export type TGroup = {
   updatedAt?: string;
 };
 
+export type TProject = {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  owner?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TCreateProjectRequest = {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+};
+
+export type TUpdateProjectRequest = Partial<TCreateProjectRequest>;
+
 export type TCreateGroupRequest = {
   name: string;
   description?: string;
@@ -282,7 +302,8 @@ export type TUpdateUserKeyRequest = {
 
 export type TUpdateConversationRequest = {
   conversationId: string;
-  title: string;
+  title?: string;
+  projectId?: string | null;
 };
 
 export type TUpdateConversationResponse = TConversation;

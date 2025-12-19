@@ -2,12 +2,13 @@ import { useState, useId, useRef, memo, useCallback, useMemo } from 'react';
 import * as Menu from '@ariakit/react/menu';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DropdownPopup, Spinner, useToastContext } from '@librechat/client';
-import { Ellipsis, Share2, CopyPlus, Archive, Pen, Trash } from 'lucide-react';
+import { Ellipsis, Share2, CopyPlus, Archive, Pen, Trash, Folder } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import {
   useDuplicateConversationMutation,
   useGetStartupConfig,
   useArchiveConvoMutation,
+  useProjectsQuery,
 } from '~/data-provider';
 import { useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
 import { NotificationSeverity } from '~/common';
@@ -24,6 +25,7 @@ function ConvoOptions({
   isPopoverActive,
   setIsPopoverActive,
   isActiveConvo,
+  projectId,
 }: {
   conversationId: string | null;
   title: string | null;
@@ -32,6 +34,7 @@ function ConvoOptions({
   isPopoverActive: boolean;
   setIsPopoverActive: React.Dispatch<React.SetStateAction<boolean>>;
   isActiveConvo: boolean;
+  projectId?: string | null;
 }) {
   const localize = useLocalize();
   const { index } = useChatContext();
@@ -49,6 +52,7 @@ function ConvoOptions({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const archiveConvoMutation = useArchiveConvoMutation();
+  const { data: projects = [] } = useProjectsQuery();
 
   const duplicateConversation = useDuplicateConversationMutation({
     onSuccess: (data) => {
@@ -128,6 +132,42 @@ function ConvoOptions({
     });
   }, [conversationId, duplicateConversation]);
 
+  const handleProjectChange = useCallback(
+    (targetProjectId: string | null) => {
+      if (!conversationId) {
+        return;
+      }
+      updateConvoMutation.mutate({
+        conversationId,
+        projectId: targetProjectId,
+      });
+    },
+    [conversationId, updateConvoMutation],
+  );
+
+  const projectMenuItems = useMemo(() => {
+    const noneLabel = localize('com_nav_projects_none') || 'Zonder project';
+    const items = [
+      {
+        label: `${noneLabel}${!projectId ? ' ✓' : ''}`,
+        onClick: () => handleProjectChange(null),
+      },
+    ];
+    projects.forEach((project) => {
+      items.push({
+        label: `${project.name}${projectId === project.id ? ' ✓' : ''}`,
+        onClick: () => handleProjectChange(project.id),
+        icon: (
+          <span
+            className="inline-block size-2.5 rounded-full"
+            style={{ backgroundColor: project.color }}
+          />
+        ),
+      });
+    });
+    return items;
+  }, [projects, handleProjectChange, projectId, localize]);
+
   const dropdownItems = useMemo(
     () => [
       {
@@ -143,6 +183,12 @@ function ConvoOptions({
         label: localize('com_ui_rename'),
         onClick: renameHandler,
         icon: <Pen className="icon-sm mr-2 text-text-primary" />,
+      },
+      {
+        label: localize('com_nav_projects_move') || 'Zet in project',
+        icon: <Folder className="icon-sm mr-2 text-text-primary" />,
+        subItems: projectMenuItems,
+        hideOnClick: false,
       },
       {
         label: localize('com_ui_duplicate'),

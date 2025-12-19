@@ -124,6 +124,43 @@ export const useManageGroupMemberMutation = () => {
   );
 };
 
+export const useCreateProjectMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (payload: t.TCreateProjectRequest) => dataService.createProject(payload),
+    {
+      mutationKey: [MutationKeys.createProject],
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.projects] });
+      },
+    },
+  );
+};
+
+export const useUpdateProjectMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    ({ projectId, payload }: { projectId: string; payload: t.TUpdateProjectRequest }) =>
+      dataService.updateProject(projectId, payload),
+    {
+      mutationKey: [MutationKeys.updateProject],
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.projects] });
+      },
+    },
+  );
+};
+
+export const useDeleteProjectMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation((projectId: string) => dataService.deleteProject(projectId), {
+    mutationKey: [MutationKeys.deleteProject],
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.projects] });
+    },
+  });
+};
+
 export const useUpdateConversationMutation = (
   id: string,
 ): UseMutationResult<

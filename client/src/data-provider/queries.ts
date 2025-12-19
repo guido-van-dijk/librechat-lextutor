@@ -60,6 +60,17 @@ export const useBrandingQuery = (
   );
 };
 
+export const useProjectsQuery = (
+  config?: UseQueryOptions<t.TProject[]>,
+): QueryObserverResult<t.TProject[]> => {
+  return useQuery<t.TProject[]>([QueryKeys.projects], () => dataService.getProjects(), {
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    ...config,
+  });
+};
+
 export const useGroupsQuery = (
   config?: UseQueryOptions<t.TGroup[]>,
 ): QueryObserverResult<t.TGroup[]> => {

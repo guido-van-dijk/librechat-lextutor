@@ -37,6 +37,11 @@ const convoSchema: Schema<IConversation> = new Schema(
     files: {
       type: [String],
     },
+    projectId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Project',
+      index: true,
+    },
     expiredAt: {
       type: Date,
     },

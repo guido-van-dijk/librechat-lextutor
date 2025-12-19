@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { logger } = require('@librechat/data-schemas');
 const { createTempChatExpirationDate } = require('@librechat/api');
 const { getMessages, deleteMessages } = require('./Message');
@@ -95,6 +96,10 @@ module.exports = {
       const messages = await getMessages({ conversationId }, '_id');
       const update = { ...convo, messages, user: req.user.id };
 
+      if (Object.prototype.hasOwnProperty.call(convo, 'projectId')) {
+        update.projectId = convo.projectId || null;
+      }
+
       if (newConversationId) {
         update.conversationId = newConversationId;
       }
@@ -157,7 +162,7 @@ module.exports = {
   },
   getConvosByCursor: async (
     user,
-    { cursor, limit = 25, isArchived = false, tags, search, order = 'desc' } = {},
+    { cursor, limit = 25, isArchived = false, tags, search, order = 'desc', projectId } = {},
   ) => {
     const filters = [{ user }];
     if (isArchived) {
@@ -171,6 +176,12 @@ module.exports = {
     }
 
     filters.push({ $or: [{ expiredAt: null }, { expiredAt: { $exists: false } }] });
+
+    if (projectId === 'none') {
+      filters.push({ $or: [{ projectId: null }, { projectId: { $exists: false } }] });
+    } else if (typeof projectId === 'string' && mongoose.Types.ObjectId.isValid(projectId)) {
+      filters.push({ projectId: new mongoose.Types.ObjectId(projectId) });
+    }
 
     if (search) {
       try {
@@ -197,7 +208,7 @@ module.exports = {
     try {
       const convos = await Conversation.find(query)
         .select(
-          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL',
+          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL projectId',
         )
         .sort({ updatedAt: order === 'asc' ? 1 : -1 })
         .limit(limit + 1)

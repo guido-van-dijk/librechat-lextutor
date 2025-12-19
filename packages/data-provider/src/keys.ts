@@ -59,6 +59,7 @@ export enum QueryKeys {
   graphToken = 'graphToken',
   groups = 'groups',
   branding = 'branding',
+  projects = 'projects',
 }
 
 // Dynamic query keys that require parameters
@@ -97,4 +98,7 @@ export enum MutationKeys {
   updateGroup = 'updateGroup',
   manageGroupMember = 'manageGroupMember',
   deleteGroup = 'deleteGroup',
+  createProject = 'createProject',
+  updateProject = 'updateProject',
+  deleteProject = 'deleteProject',
 }

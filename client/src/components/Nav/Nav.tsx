@@ -12,10 +12,11 @@ import {
   useLocalStorage,
   useNavScrolling,
 } from '~/hooks';
-import { useConversationsInfiniteQuery } from '~/data-provider';
+import { useConversationsInfiniteQuery, useProjectsQuery } from '~/data-provider';
 import { Conversations } from '~/components/Conversations';
 import SearchBar from './SearchBar';
 import NewChat from './NewChat';
+import ProjectsPanel from './ProjectsPanel';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -69,12 +70,29 @@ const Nav = memo(
     });
 
     const search = useRecoilValue(store.search);
+    const { data: projects = [], isLoading: projectsLoading } = useProjectsQuery({
+      enabled: isAuthenticated,
+    });
+    const [projectFilter, setProjectFilter] = useLocalStorage<string>(
+      'conversationProjectFilter',
+      'all',
+    );
+    const projectIdParam = useMemo(() => {
+      if (projectFilter === 'all') {
+        return undefined;
+      }
+      if (projectFilter === 'none') {
+        return 'none';
+      }
+      return projectFilter;
+    }, [projectFilter]);
 
     const { data, fetchNextPage, isFetchingNextPage, isLoading, isFetching, refetch } =
       useConversationsInfiniteQuery(
         {
           tags: tags.length === 0 ? undefined : tags,
           search: search.debouncedQuery || undefined,
+          projectId: projectIdParam,
         },
         {
           enabled: isAuthenticated,
@@ -106,6 +124,18 @@ const Nav = memo(
       },
       isFetchingNext: isFetchingNextPage,
     });
+
+    useEffect(() => {
+      if (projectsLoading) {
+        return;
+      }
+      if (projectFilter !== 'all' && projectFilter !== 'none') {
+        const exists = projects.some((project) => project.id === projectFilter);
+        if (!exists) {
+          setProjectFilter('all');
+        }
+      }
+    }, [projectFilter, projects, projectsLoading, setProjectFilter]);
 
     const conversations = useMemo(() => {
       return data ? data.pages.flatMap((page) => page.conversations) : [];
@@ -141,7 +171,7 @@ const Nav = memo(
 
     useEffect(() => {
       refetch();
-    }, [tags, refetch]);
+    }, [tags, projectIdParam, refetch]);
 
     const loadMoreConversations = useCallback(() => {
       if (isFetchingNextPage || !computedHasNextPage) {
@@ -178,6 +208,21 @@ const Nav = memo(
     const [isSearchLoading, setIsSearchLoading] = useState(
       !!search.query && (search.isTyping || isLoading || isFetching),
     );
+
+    const handleProjectSelect = useCallback(
+      (value: string) => {
+        setProjectFilter(value);
+        moveToTop();
+      },
+      [setProjectFilter, moveToTop],
+    );
+
+    const newChatProjectId = useMemo(() => {
+      if (projectFilter === 'all' || projectFilter === 'none') {
+        return null;
+      }
+      return projectFilter;
+    }, [projectFilter]);
 
     useEffect(() => {
       if (search.isTyping) {
@@ -218,6 +263,13 @@ const Nav = memo(
                         toggleNav={toggleNavVisible}
                         headerButtons={headerButtons}
                         isSmallScreen={isSmallScreen}
+                        projectId={newChatProjectId}
+                      />
+                      <ProjectsPanel
+                        projects={projects}
+                        activeProjectId={projectFilter}
+                        onSelect={handleProjectSelect}
+                        isLoading={projectsLoading}
                       />
                       <Conversations
                         conversations={conversations}

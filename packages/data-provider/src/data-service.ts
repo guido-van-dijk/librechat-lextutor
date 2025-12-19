@@ -187,6 +187,25 @@ export const updateBrandingConfig = (
   return request.put(endpoints.adminBranding(), payload);
 };
 
+export const getProjects = (): Promise<t.TProject[]> => {
+  return request.get(endpoints.projects());
+};
+
+export const createProject = (payload: t.TCreateProjectRequest): Promise<t.TProject> => {
+  return request.post(endpoints.projects(), payload);
+};
+
+export const updateProject = (
+  projectId: string,
+  payload: t.TUpdateProjectRequest,
+): Promise<t.TProject> => {
+  return request.patch(endpoints.project(projectId), payload);
+};
+
+export const deleteProject = (projectId: string): Promise<t.TProject> => {
+  return request.delete(endpoints.project(projectId));
+};
+
 export const getGroups = (): Promise<t.TGroup[]> => {
   return request.get(endpoints.groups());
 };

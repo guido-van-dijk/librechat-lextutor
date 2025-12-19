@@ -1,5 +1,6 @@
 const { GLOBAL_PROJECT_NAME } = require('librechat-data-provider').Constants;
-const { Project } = require('~/db/models');
+const mongoose = require('mongoose');
+const { Project, Conversation } = require('~/db/models');
 
 /**
  * Retrieve a project by ID and convert the found project document to a plain object.
@@ -119,6 +120,76 @@ const removeAgentFromAllProjects = async (agentId) => {
   await Project.updateMany({}, { $pull: { agentIds: agentId } });
 };
 
+const normalizeProjectInput = (name = '') => {
+  const normalized = name.trim();
+  if (!normalized) {
+    throw new Error('Project name is required');
+  }
+  return normalized;
+};
+
+const listUserProjects = async (ownerId) => {
+  return await Project.find({ owner: ownerId }).sort({ createdAt: 1 }).lean();
+};
+
+const createUserProject = async ({ ownerId, name, description, color, icon }) => {
+  const normalizedName = normalizeProjectInput(name);
+
+  const project = await Project.create({
+    owner: new mongoose.Types.ObjectId(ownerId),
+    name: normalizedName,
+    description: description?.trim() ?? '',
+    color: color || '#6366F1',
+    icon: icon?.trim() || undefined,
+  });
+
+  return project.toObject();
+};
+
+const updateUserProject = async ({ ownerId, projectId, data = {} }) => {
+  const update = {};
+  if (typeof data.name === 'string') {
+    update.name = normalizeProjectInput(data.name);
+  }
+  if (typeof data.description === 'string') {
+    update.description = data.description.trim();
+  }
+  if (typeof data.color === 'string') {
+    update.color = data.color;
+  }
+  if (typeof data.icon === 'string') {
+    update.icon = data.icon.trim();
+  }
+
+  const updated = await Project.findOneAndUpdate(
+    { _id: projectId, owner: ownerId },
+    { $set: update },
+    { new: true },
+  ).lean();
+
+  if (!updated) {
+    throw new Error('Project not found');
+  }
+
+  return updated;
+};
+
+const deleteUserProject = async ({ ownerId, projectId }) => {
+  const deleted = await Project.findOneAndDelete({ _id: projectId, owner: ownerId }).lean();
+  if (!deleted) {
+    throw new Error('Project not found');
+  }
+
+  await Conversation.updateMany(
+    { user: ownerId, projectId },
+    {
+      $unset: { projectId: '' },
+    },
+  );
+
+  return deleted;
+};
+
 module.exports = {
   getProjectById,
   getProjectByName,
@@ -130,4 +201,8 @@ module.exports = {
   addAgentIdsToProject,
   removeAgentIdsFromProject,
   removeAgentFromAllProjects,
+  listUserProjects,
+  createUserProject,
+  updateUserProject,
+  deleteUserProject,
 };
