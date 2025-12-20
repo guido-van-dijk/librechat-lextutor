@@ -204,6 +204,7 @@ export const baseEndpointSchema = z.object({
     .optional(),
   titleEndpoint: z.string().optional(),
   titlePromptTemplate: z.string().optional(),
+  modelNames: z.array(z.string()).optional(),
 });
 
 export type TBaseEndpoint = z.infer<typeof baseEndpointSchema>;

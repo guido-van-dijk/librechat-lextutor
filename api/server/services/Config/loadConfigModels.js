@@ -111,6 +111,20 @@ async function loadConfigModels(req) {
     }
   }
 
+  const endpointModelOverrides = [
+    EModelEndpoint.openAI,
+    EModelEndpoint.google,
+    EModelEndpoint.anthropic,
+    EModelEndpoint.bedrock,
+  ];
+
+  endpointModelOverrides.forEach((endpoint) => {
+    const endpointConfig = appConfig.endpoints?.[endpoint];
+    if (endpointConfig?.modelNames?.length) {
+      modelsConfig[endpoint] = endpointConfig.modelNames;
+    }
+  });
+
   return modelsConfig;
 }
 
