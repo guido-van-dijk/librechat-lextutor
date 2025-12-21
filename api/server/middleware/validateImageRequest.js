@@ -75,25 +75,23 @@ function createValidateImageRequest(secureImageLinks) {
     const escapedImagesPath = imagesPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pathSegments = requestPath.split('/');
     const fileName = pathSegments[pathSegments.length - 1] || '';
-    const agentAvatarPattern = new RegExp(`^agent-[^/]+?\\.(png|jpg|jpeg|webp|gif)$`, 'i');
-    const genericAvatarPattern = new RegExp(`^avatar-[^/]+?\\.(png|jpg|jpeg|webp|gif)$`, 'i');
+    const agentAvatarPattern = new RegExp(
+      `^${escapedImagesPath}/[a-f0-9]{24}/agent-[^/]+\\.(png|jpg|jpeg|webp|gif)$`,
+      'i',
+    );
+    const genericAvatarPattern = new RegExp(
+      `^${escapedImagesPath}/[a-f0-9]{24}/avatar-[^/]+\\.(png|jpg|jpeg|webp|gif)$`,
+      'i',
+    );
 
-    if (
-      pathSegments.length >= 3 &&
-      agentAvatarPattern.test(fileName) &&
-      /^[a-f0-9]{24}$/i.test(pathSegments[pathSegments.length - 2] || '')
-    ) {
+    if (agentAvatarPattern.test(requestPath)) {
       logger.debug('[validateImageRequest] Bypassing auth for public agent avatar', {
         requestPath,
       });
       return next();
     }
 
-    if (
-      pathSegments.length >= 3 &&
-      genericAvatarPattern.test(fileName) &&
-      /^[a-f0-9]{24}$/i.test(pathSegments[pathSegments.length - 2] || '')
-    ) {
+    if (genericAvatarPattern.test(requestPath)) {
       logger.debug('[validateImageRequest] Bypassing auth for public avatar asset', {
         requestPath,
       });
